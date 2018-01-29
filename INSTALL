@@ -1,0 +1,190 @@
+Introduction
+============
+
+The following instructions walk through the complete installation of Bluebottle
+dependencies as several of them can be tricky. This is not guaranteed to be up-
+to-date, as several of the installers (particularly CGNS and HDF5) have been
+known to change significantly between version numbers.
+
+The required dependencies for Bluebottle are:
+
+  - OpenMPI 2.1.2           -- Compiled with cuda-aware support. Versions
+                               2.1.0, 2.1.1, and 2.1.2 all solved issues with 
+                               parallel cgns and MPI_Window creation. 2.1.2 
+                               supposedly solved an issue with MPI_Finalized.
+                               Version 3.0.0 hangs on calls to MPI_Win_fence.
+  - HDF5 >= 1.8.19          -- No known issues with prior versions.
+                               HDF5 needs to be compiled with zlib support and
+                               parallel enabled. Bluebottle has also been tested
+                               with HDF5 1.10.1.
+  - Parallel CGNS >= 3.3.0  -- No known issues with prior versions.
+                               CGNS needs to compiled with hdf5 and parallel
+                               enabled. Bluebottle has also been tested with
+                               CGNS 3.3.1.
+
+In addition, the following dependencies are required to build the dependencies.
+These should be properly added to your $PATH and $LD_LIBRARY_PATH as 
+appropriate.
+  
+  - CMake                   -- Required to build HDF5. Most distributions come 
+                               with CMake, but it's a relatively easy 
+                               installation if not.
+  - gcc                     -- Most distributions should have gcc available.
+  - CUDA >= 7.5             -- Tested with 7.5 and 9.0.  If not already there, 
+                               add CUDA to your $PATH and $LD_LIBRARY_PATH with:
+
+                            $ export PATH="</path/to/cuda/bin>:$PATH"
+                            $ export LD_LIBRARY_PATH="</path/to/cuda/lib64>:$LD_LIBRARY_PATH"
+                                
+                               If your running on a system with lmod, this is
+                               usually handled when you load a module. (See 
+                               below.)
+
+The walkthrough will use several conventions that are defined here:
+
+  - "install directory"     -- The final build directory where the dependency
+                               will be installed to and Bluebottle will link to.
+  - "build directory"       -- The directory where the dependency is built and
+                               configured.
+  - </path/to/something>    -- A user-defined absolute path, e.g. 
+                               /opt/openmpi-3.0.0 or /opt/pcgns/3.3.0
+  - <...>                   -- Pre-existing text that I haven't included for
+                               brevity and doesn't need to be modified. For
+                               example, "-C Release -V -O hdf5.log" may be
+                               shortened to <...>.
+
+If you are installing these directories for group use, set correct permissions
+using:
+
+  $ umask 022
+
+This will set the permissions throughout the entire build process, although the
+only step that really matters is the final `make install`. It is important to 
+also use a common shared location that all group members can access.
+
+MARCC Environment
+=================
+On MARCC (and potentially other environments), the following module set-up
+should be enough to compile the dependencies and run Bluebottle:
+
+  $ module purge
+  $ module load cuda/9.0
+  $ module load gcc
+  $ module load git
+  $ module load slurm
+  $ module load binutils
+  $ module load marcc-utils
+
+If you're running on MARCC, you can also link to the dependencies directly. They
+are installed in: /scratch/groups/aprospe1/bluebottle-dependencies.
+The Makefile should look like:
+  24 MPI_DIR = /scratch/groups/aprospe1/bbottle-deps/openmpi-2.1.2
+  25 HDF5_DIR = /scratch/groups/aprospe1/bbottle-deps/phdf5/1.10.1
+  26 CGNS_DIR = /scratch/groups/aprospe1/bbottle-deps/pcgns/3.3.1
+  27 CUDA_DIR = /cm/shared/apps/cuda/9.0
+  28 CUDA_SDK_DIR = /cm/shared/apps/cuda/9.0/samples
+
+OpenMPI
+=======
+OpenMPI is the easiest of the three dependencies to install. You can check if a
+pre-existing version is CUDA-aware by running
+
+  $ ompi_info --parsable --all | grep mpi_built_with_cuda_support:value
+
+and checking the return value. At this time, other MPI implementations are not
+supported, however, it may not be too much work to make this more general. In
+particular, the #define variable ENV_LOCAL_RANK in bluebottle.h is defined by an
+implementation-specific environment variable which needs to be changed.
+
+Note that depending on the version, the patch at: 
+https://github.com/open-mpi/ompi/issues/3244 might need to be applied. This
+doesn't affect the result, but cleans up some unwanted MPI output after 
+MPI_Finalize.
+
+Download the OpenMPI 2.1.2 tarball from the website:
+
+  $ wget https://www.open-mpi.org/software/ompi/v3.0/downloads/openmpi-2.1.2.tar.gz
+ 
+Untar the file,
+  
+  $ tar -xzvf openmpi-2.1.2.tar.gz
+
+and enter the source directory and create a build directory.
+  
+  $ cd openmpi-2.1.2 && mkdir build && cd build
+
+Configure OpenMpi to use a user-defined installation location and to be
+CUDA-aware:
+  
+  $ ../configure --prefix=</path/to/openmpi-2.1.2> --with-cuda=</path/to/cuda>
+
+Compile and install OpenMPI:
+
+  $ make
+  $ make install
+
+Add OpenMPI to the following environment variables:
+
+  $ export PATH="</path/to/openmpi-2.1.2/bin>:$PATH"
+  $ export LD_LIBRARY_PATH="</path/to/openmpi-2.1.2/lib:$LD_LIBRARY_PATH"
+
+HDF5
+====
+Download latest release tarball from the website:
+
+  $ wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.1/src/CMake-hdf5-1.10.1.tar.gz
+
+Untar the file and enter the source directory:
+  $ tar -xzvf CMake-hdf5-1.10.1.tar.gz
+  $ cd CMake-hdf5-1.10.1/hdf5-1.10.1
+  $ mkdir build && cd build
+
+Use CMake to edit compile options:
+
+  $ cmake -DHDF5_BUILD_CPP_LIB:BOOL=OFF -DHDF5_ENABLE_Z_LIB_SUPPORT:BOOL=ON -DHDF5_ENABLE_PARALLEL:BOOL=ON -DBUILD_SHARED_LIBS:BOOL=ON -DCMAKE_INSTALL_PREFIX:PATH=<install path> ..
+
+Make and make install:
+
+  $ make
+  $ make install
+
+In the install path, create a symlink to the shared libraries so other programs
+can compile against it with -lhdf5
+
+  $ cd <path/to/hdf5/lib>
+  $ ln -s libhdf5-shared.so libhdf5.so
+
+Add hdf5 to your environment variables:
+
+  $ export PATH="</path/to/new/hdf5/bin>:$PATH"
+  $ export LD_LIBRARY_PATH="</path/to/new/hdf5/lib:$LD_LIBRARY_PATH"
+
+CGNS
+====
+Download the latest release, untar the file, and prepare to build:
+  $ wget https://github.com/CGNS/CGNS/archive/v3.3.1.tar.gz
+  $ tar -xzvf v3.3.1.tar.gz
+  $ cd v3.3.1
+  $ mkdir build && cd build
+
+Configure the installation:
+  $ cmake -DCMAKE_INSTALL_PREFIX:PATH=</path/to/new/cgns> -DCGNS_ENABLE_64BIT:BOOL=ON -DCGNS_ENABLE_HDF5:BOOL=ON -DHDF5_DIR:PATH=</path/to/hdf5/share/cmake> -DHDF5_NEED_MPI:BOOL=ON -DHDF5_NEED_ZLIB:BOOL=ON -DCGNS_ENABLE_PARALLEL:BOOL=ON ..
+
+Make, make install:
+  $ make
+  $ make install
+
+Add cgns to your environment variables:
+
+  $ export PATH="</path/to/new/cgns/bin>:$PATH"
+  $ export LD_LIBRARY_PATH="</path/to/new/cgns/lib:$LD_LIBRARY_PATH"
+
+
+Configuration
+=============
+
+To tell Bluebottle where to find the required dependencies, edit the Makefile.
+Enter the full path to the installation location of each dependency (the
+path to directory containing /include and /lib directories) in the section
+entitled EDIT: DEPENDENCIES. Also, enter the path to your compiler binary in the
+section entitled EDIT: COMPILERS.

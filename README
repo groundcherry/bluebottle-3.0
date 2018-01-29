@@ -1,0 +1,54 @@
+Introduction
+============
+
+Bluebottle is the many-GPU extension of Bluebottle, a GPU-centric finite-
+difference imcompressible Navier-Stokes flow solver coupled with the Physalis 
+method for fully resolving spherical particles dispersed throughout the flow.
+It is a research code developed by Daniel Willen (daniel.willen@jhu.edu) under
+the supervision of Dr. Adam Sierakowski (sierakowski@jhu.edu) and Prof. Andrea
+Prosperetti at the Johns Hopkins University.
+
+The original single-GPU code was developed by Adam Sierakowski under the 
+supervision of Prof. Prosperetti and can be found at:
+  https://github.com/groundcherry/bluebottle
+
+Branches
+========
+
+There are several branches in this repository:
+
+- master      -- Contains release versions of Bluebottle.
+- devel       -- Contains stable development versions that are not ready for 
+                  master release.
+
+Obtaining Bluebottle
+==================
+
+Bluebottle has been released under the Apache License, Version 2.0 and is
+available at:
+  https://github.com/groundcherry/bluebottle-2.0
+
+Installing Bluebottle
+===================
+
+For installation instructions, see the accompanying INSTALL document.
+
+Running Bluebottle
+================
+
+For run instructions, see the accompanying RUN document.
+
+Bluebottle Documentation
+======================
+
+The most recent documentation can be found on the Bluebottle Wiki at
+http://lucan.me.jhu.edu or physaliscfd.org. Most of the documentation for the 
+single-GPU version applies to the many-GPU version as well.
+
+Questions and Bug Reports
+=========================
+
+Bluebottle is an academic research code being actively developed. Should you
+have any questions about the code, please submit an issue using the Bluebottle
+Issue tracker at https://github.com/groundcherry/bluebottle-2.0/issues.
+

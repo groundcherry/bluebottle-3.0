@@ -1,0 +1,24 @@
+# Compiled Files
+*.o
+sim/bluefish
+*.pyc
+
+# Output Files
+sim/output/*
+*.cgns
+rank-*.debug
+*.png
+*restart.config*
+sim/record/*
+
+# Misc Files
+*.swp
+submit-restart.sh
+bfish.out
+
+# .keep for directory placeholder
+.keep
+
+# Directories
+tools/bin/*         # Binaries
+validate/input/*    # Sim-linked flow files

@@ -1,0 +1,72 @@
+Configuration
+=============
+
+To tell Bluebottle where to find the required dependencies, edit the Makefile.
+Enter the full path to the installation location of each dependency (the
+path to directory containing /include and /lib directories) in the section
+entitled EDIT: DEPENDENCIES. Also, enter the path to your compiler binary in the
+section entitled EDIT: COMPILERS.
+
+Compile
+=======
+
+From this directory, compile Bluebottle using make. You have a few choices:
+
+  $ make            -- Compile to run with verbose standard output.
+  $ make clean      -- Delete the compiled object files and linked binary.
+  $ make debug      -- Compile to run with debug enabled and debug output
+
+When compiled, the binary will reside in the bluebottle/sim subdirectory.
+
+Configuration Files
+===================
+Configuration files for the flow domain, particles, and output reside in the
+bluebottle/sim/input subdirectory. More information is available on the 
+physaliscfd.org website, though it is not guaranteed to be up to date.
+
+Several tools to generate configuration files exist in the bluebottle/tools 
+subdirectory. These can be made by typing "make" while in the tools subdirectory
+(this only requires gcc). This tools include:
+
+- decomp_reader   -- Generate the decomp.config file using an existing 
+                     flow.config file. The first seven lines of the flow.config
+                     file must be set before running this tool. The syntax is:
+
+                      $  ./decomp_reader ./path/to/input/flow.config
+
+- seeder          -- Randomly seeds the number of particles specified in a 
+                     part.config file using the parameters specified by the
+                     particle in the part.config file. Also uses domain extents
+                     given in the flow.config file residing in the same
+                     directory as the given part.config file. The syntax is:
+                      
+                      $ ./seeder ./path/to/input/part.config
+
+                     The output is a file called "part_seeder.config". NOTE:
+                     This is not very robust.
+
+Running Bluebottle
+==================
+
+Launch Bluebottle from the command line by navigating to the bluebottle/sim 
+directory and typing:
+
+$ mpirun -np 1 ./bluebottle
+
+This will read the required input files in bluebottle/sim/input and write
+the requested output files to bluebottle/sim/output. Some useful runtime
+information will be written to bluebottle/sim/record. There are a number of
+canonical input files distributed in the bluebottle/sim/input directory. To use
+one, simply rename it to flow.config.
+
+The above command will use one GPU. On a compute resource that is not managed by
+a resource manager, the GPUs used can be changed by modifying the environment 
+variable CUDA_VISIBLE_DEVICES. More GPUs can be used by changing "-np 1" as
+appropriate.
+
+The only resource manager Bluebottle has been tested with is Slurm. A submit.sh
+file is given in the bluebottle/sim subdirectory, more information about running
+under Slurm is given in that file. 
+
+For a detailed discussion about the required input files, see the Bluebottle/
+Bluebottle Wiki at http://lucan.me.jhu.edu/wiki/index.php/Configuration_files.
