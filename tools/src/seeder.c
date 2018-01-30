@@ -1,4 +1,25 @@
-// XXX LICENSE, ADAM!!
+/*******************************************************************************
+ ********************************* BLUEBOTTLE **********************************
+ *******************************************************************************
+ *
+ *  Copyright 2012 - 2018 Adam Sierakowski and Daniel Willen, 
+ *                         The Johns Hopkins University
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ *  Please contact the Johns Hopkins University to use Bluebottle for
+ *  commercial and/or for-profit applications.
+ ******************************************************************************/
 
 #include "seeder.h"
 
@@ -196,7 +217,6 @@ void domain_read_input(void)
   fret = fscanf(infile, "BOUNDARY CONDITIONS\n");
   fret = fscanf(infile, "v_bc_tdelay %lf\n", &fbuf);
   fret = fscanf(infile, "PRESSURE\n");
-  fret = fscanf(infile, "bc.pW %s", sbuf);
   fret = fscanf(infile, "bc.pW %s", sbuf);
 
   if (strcmp(sbuf, "PERIODIC") == 0) {
