@@ -502,7 +502,7 @@ etime_AR2 += (te_AR2.tv_usec - ts_AR2.tv_usec) * 1.e-6;
         recorder_PP_timed(rname, q, sqrt(sp_rq1)/sqrt(sp_rhs), etime,
           etime_spmv, etime_ip1, etime_AR1, etime_up1, etime_ip2,
           etime_AR2, etime_up2, etime_mpi);
-        printf("N%d >> The PP equation converged in %d iterations\n", rank, q);
+        //printf("N%d >> The PP equation converged in %d iterations\n", rank, q);
         break;
 
       /* Check if sp_rq1 is nan */
@@ -700,7 +700,8 @@ void cuda_PP_cg_noparts(void)
         etime += (te.tv_usec - ts.tv_usec)*1e-6;  // seconds
 
         recorder_PP(rname, q, sqrt(sp_rq1)/sqrt(sp_rhs), etime);
-        printf("N%d >> The PP equation converged in %d iterations\n", rank, q);
+        //if (rank == 0)
+        //  printf("N%d >> The PP equation converged in %d iterations\n", rank, q);
         break;
 
       /* Check if sp_rq1 is nan */

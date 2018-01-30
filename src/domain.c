@@ -124,7 +124,7 @@ void domain_read_input(void)
   // If number of domains in input and mpirun aren't the same, quit
   if (DOM.S3 != nprocs) {
     fprintf(stderr,"  The number of processes requested with mpirun (%d) does"
-           "  not\n match the number specified in the flow.config file (%d)\n",
+           " not\n   match the number specified in the flow.config file (%d)\n",
            nprocs, DOM.S3);
     exit(EXIT_FAILURE);
   }
@@ -2050,9 +2050,9 @@ void init_shear(void)
   int _ii, _jj, _kk;
   int c;
   real x, y, z;
-  for (_kk = dom[rank].Gfx._ks; _kk <= dom[rank].Gfx._ke; _kk++) {
-    for (_jj = dom[rank].Gfx._js; _jj <= dom[rank].Gfx._je; _jj++) {
-      for (_ii = dom[rank].Gfx._is; _ii <= dom[rank].Gfx._ie; _ii++) {
+  for (_kk = dom[rank].Gfx._ksb; _kk <= dom[rank].Gfx._keb; _kk++) {
+    for (_jj = dom[rank].Gfx._jsb; _jj <= dom[rank].Gfx._jeb; _jj++) {
+      for (_ii = dom[rank].Gfx._isb; _ii <= dom[rank].Gfx._ieb; _ii++) {
         y = ((_jj - 0.5) * dom[rank].dy) + dom[rank].ys;
         z = ((_kk - 0.5) * dom[rank].dz) + dom[rank].zs;
         c = GFX_LOC(_ii, _jj, _kk, dom[rank].Gfx.s1b, dom[rank].Gfx.s2b);
@@ -2062,9 +2062,9 @@ void init_shear(void)
       }
     }
   }
-  for (_kk = dom[rank].Gfy._ks; _kk <= dom[rank].Gfy._ke; _kk++) {
-    for (_jj = dom[rank].Gfy._js; _jj <= dom[rank].Gfy._je; _jj++) {
-      for (_ii = dom[rank].Gfy._is; _ii <= dom[rank].Gfy._ie; _ii++) {
+  for (_kk = dom[rank].Gfy._ksb; _kk <= dom[rank].Gfy._keb; _kk++) {
+    for (_jj = dom[rank].Gfy._jsb; _jj <= dom[rank].Gfy._jeb; _jj++) {
+      for (_ii = dom[rank].Gfy._isb; _ii <= dom[rank].Gfy._ieb; _ii++) {
         z = ((_kk - 0.5) * dom[rank].dz) + dom[rank].zs;
         x = ((_ii - 0.5) * dom[rank].dx) + dom[rank].xs;
         c = GFY_LOC(_ii, _jj, _kk, dom[rank].Gfy.s1b, dom[rank].Gfy.s2b);
@@ -2074,9 +2074,9 @@ void init_shear(void)
       }
     }
   }
-  for (_kk = dom[rank].Gfz._ks; _kk <= dom[rank].Gfz._ke; _kk++) {
-    for (_jj = dom[rank].Gfz._js; _jj <= dom[rank].Gfz._je; _jj++) {
-      for (_ii = dom[rank].Gfz._is; _ii <= dom[rank].Gfz._ie; _ii++) {
+  for (_kk = dom[rank].Gfz._ksb; _kk <= dom[rank].Gfz._keb; _kk++) {
+    for (_jj = dom[rank].Gfz._jsb; _jj <= dom[rank].Gfz._jeb; _jj++) {
+      for (_ii = dom[rank].Gfz._isb; _ii <= dom[rank].Gfz._ieb; _ii++) {
         x = ((_ii - 0.5) * dom[rank].dx) + dom[rank].xs;
         y = ((_jj - 0.5) * dom[rank].dy) + dom[rank].ys;
         c = GFZ_LOC(_ii, _jj, _kk, dom[rank].Gfz.s1b, dom[rank].Gfz.s2b);

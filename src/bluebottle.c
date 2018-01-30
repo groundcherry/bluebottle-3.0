@@ -40,7 +40,6 @@ int main(int argc, char *argv[])
   /* Allocate domain memory on host and device */
   cuda_dom_malloc_host();
   cuda_dom_malloc_dev();
-  count_mem();
 
   /* Initialize cuda threads/blocks and MPI structures */
   cuda_blocks_init();
@@ -88,6 +87,7 @@ int main(int argc, char *argv[])
   /* Allocate particles on device */
   cuda_part_malloc_dev();
   cuda_part_push();
+  count_mem();
 
   /* Fill ghost bins for first time step */
   if (NPARTS > 0) {
@@ -305,7 +305,7 @@ int main(int argc, char *argv[])
 
     /* Check for blow up */
     if (dt < 1.e-10 || dt > 1.e10) {
-      printf("N%d >> The solution timestep has diverged. Ending simulation.\n",
+      printf("N%d >> The solution time step has diverged. Ending simulation.\n",
         rank);
       exit(EXIT_FAILURE);
     }
