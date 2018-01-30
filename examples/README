@@ -26,13 +26,13 @@ Examples
 =====================
 This directory contains several examples of typical flow and particle
 configurations on several GPUs. Each examples are designed to run with four
-GPUs, though this can be modified as need. The examples are:
+GPUs, though this can be modified as needed. The examples are:
 
   1) cuboctohedron-collision
     Used to validate multi-particle collisions. Twelve particles are placed at
-    the vertices of a cuboctohedron surround a central particle, to which they
-    are attached with a virtual spring. The particles move towards the central
-    particle, eventually undergoing a collision.
+    the vertices of a cuboctohedron surrounding a central particle, to which
+    they are attached with a virtual spring. The particles move towards the
+    central particle, eventually undergoing a collision.
 
   2) lid-driven-cavity
     A typical lid-driven cavity with the addition of particles. The z-direction
@@ -58,5 +58,5 @@ GPUs, though this can be modified as need. The examples are:
   6) channel
     The fluid is driven in the periodic x- direction by an applied pressure
     gradient. The y- direction has no-slip Dirichlet walls on the top and
-    bottom, and the z-direciton is periodic. The initial condition is set
+    bottom, and the z-direction is periodic. The initial condition is set
     to the expected channel flow profile.
