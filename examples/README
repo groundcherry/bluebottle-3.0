@@ -1,0 +1,62 @@
+################################################################################
+################################# BLUEBOTTLE-2.0 ###############################
+################################################################################
+#
+#   Copyright 2012 - 2018 Adam Sierakowski and Daniel Willen
+#                       	  The Johns Hopkins University
+# 
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+# 
+#       http://www.apache.org/licenses/LICENSE-2.0
+# 
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+# 
+#   Please contact the Johns Hopkins University to use Bluebottle for
+#   commercial and/or for-profit applications.
+################################################################################
+
+
+Examples
+=====================
+This directory contains several examples of typical flow and particle
+configurations on several GPUs. Each examples are designed to run with four
+GPUs, though this can be modified as need. The examples are:
+
+  1) cuboctohedron-collision
+    Used to validate multi-particle collisions. Twelve particles are placed at
+    the vertices of a cuboctohedron surround a central particle, to which they
+    are attached with a virtual spring. The particles move towards the central
+    particle, eventually undergoing a collision.
+
+  2) lid-driven-cavity
+    A typical lid-driven cavity with the addition of particles. The z-direction
+    is periodic.
+
+  3) pressure-driven-duct
+    The flow is driven in the periodic x-direction by an applied pressure
+    gradient. The y- and z- directions have no-slip Dirichlet boundary 
+    conditions. The initial condition is quiescent.
+    
+  4) sedimentation
+    Particles are seeded in the domain and allowed to settle to the bottom under
+    the influence of gravity. This example illustrates the use of a "screen"
+    boundary condition, which acts as a solid no-slip wall to the particles but
+    is invisible to the fluid.
+
+  5) shear
+    The particles are placed in a channel with applied Dirichlet velocity
+    boundary conditions on the north and south walls, causing a shear flow.
+    The initial fluid velocity condition is set to the expected shear flow
+    profile.
+
+  6) channel
+    The fluid is driven in the periodic x- direction by an applied pressure
+    gradient. The y- direction has no-slip Dirichlet walls on the top and
+    bottom, and the z-direciton is periodic. The initial condition is set
+    to the expected channel flow profile.
