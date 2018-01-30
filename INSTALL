@@ -76,11 +76,11 @@ should be enough to compile the dependencies and run Bluebottle:
   $ module load marcc-utils
 
 If you're running on MARCC, you can also link to the dependencies directly. They
-are installed in: /scratch/groups/aprospe1/bluebottle-dependencies.
+are installed in: /scratch/groups/aprospe1/bluefish-dependencies.
 The Makefile should look like:
-  24 MPI_DIR = /scratch/groups/aprospe1/bbottle-deps/openmpi-2.1.2
-  25 HDF5_DIR = /scratch/groups/aprospe1/bbottle-deps/phdf5/1.10.1
-  26 CGNS_DIR = /scratch/groups/aprospe1/bbottle-deps/pcgns/3.3.1
+  24 MPI_DIR = /scratch/groups/aprospe1/bfish-deps/openmpi-2.1.2
+  25 HDF5_DIR = /scratch/groups/aprospe1/bfish-deps/phdf5/1.10.1
+  26 CGNS_DIR = /scratch/groups/aprospe1/bfish-deps/pcgns/3.3.1
   27 CUDA_DIR = /cm/shared/apps/cuda/9.0
   28 CUDA_SDK_DIR = /cm/shared/apps/cuda/9.0/samples
 
