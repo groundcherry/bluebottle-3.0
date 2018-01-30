@@ -1,6 +1,8 @@
 # Compiled Files
 *.o
-sim/bluefish
+sim/bluebottle
+tools/bin/decomp_reader
+tools/bin/seeder
 *.pyc
 
 # Output Files
