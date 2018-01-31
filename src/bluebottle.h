@@ -77,7 +77,7 @@
  *  VERSION
  * TYPE
  */
-#define VERSION "2.0"
+#define VERSION "3.0"
 /*
  * PURPOSE
  * Define the bluebottle version number
