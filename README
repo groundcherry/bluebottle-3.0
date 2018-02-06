@@ -11,6 +11,8 @@ Prosperetti at the Johns Hopkins University.
 The original single-GPU code was developed by Adam Sierakowski under the 
 supervision of Prof. Prosperetti and can be found at:
   https://github.com/groundcherry/bluebottle
+More information and documentation is available at:
+  physalisCFD.org
 
 Branches
 ========
@@ -26,7 +28,7 @@ Obtaining Bluebottle
 
 Bluebottle has been released under the Apache License, Version 2.0 and is
 available at:
-  https://github.com/groundcherry/bluebottle-2.0
+  https://github.com/groundcherry/bluebottle-3.0
 
 Installing Bluebottle
 ===================
@@ -50,5 +52,5 @@ Questions and Bug Reports
 
 Bluebottle is an academic research code being actively developed. Should you
 have any questions about the code, please submit an issue using the Bluebottle
-Issue tracker at https://github.com/groundcherry/bluebottle-2.0/issues.
+Issue tracker at https://github.com/groundcherry/bluebottle-3.0/issues.
 
