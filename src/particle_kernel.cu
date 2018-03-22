@@ -2431,6 +2431,7 @@ __global__ void collision_walls(part_struct *parts, int nparts, BC *bc, real eps
         }
         parts[i].iSt[q] = -10;
         parts[i].St[q] = 1./9.*parts[i].rho/rhof*2.*parts[i].r*fabs(Un)/nu;
+        parts[i].ncoll_wall += 1;
       }
 
       omx = 0.5*(parts[i].ox+parts[i].ox0);
@@ -2549,6 +2550,7 @@ __global__ void collision_walls(part_struct *parts, int nparts, BC *bc, real eps
         }
         parts[i].iSt[q] = -11;
         parts[i].St[q] = 1./9.*parts[i].rho/rhof*2.*parts[i].r*fabs(Un)/nu;
+        parts[i].ncoll_wall += 1;
       }
 
       omx = 0.5*(parts[i].ox+parts[i].ox0);
@@ -2664,6 +2666,7 @@ __global__ void collision_walls(part_struct *parts, int nparts, BC *bc, real eps
         }
         parts[i].iSt[q] = -12;
         parts[i].St[q] = 1./9.*parts[i].rho/rhof*2.*parts[i].r*fabs(Un)/nu;
+        parts[i].ncoll_wall += 1;
       }
 
       omx = 0.5*(parts[i].ox+parts[i].ox0);
@@ -2779,6 +2782,7 @@ __global__ void collision_walls(part_struct *parts, int nparts, BC *bc, real eps
         }
         parts[i].iSt[q] = -13;
         parts[i].St[q] = 1./9.*parts[i].rho/rhof*2.*parts[i].r*fabs(Un)/nu;
+        parts[i].ncoll_wall += 1;
       }
 
       omx = 0.5*(parts[i].ox+parts[i].ox0);
@@ -2894,6 +2898,7 @@ __global__ void collision_walls(part_struct *parts, int nparts, BC *bc, real eps
         }
         parts[i].iSt[q] = -14;
         parts[i].St[q] = 1./9.*parts[i].rho/rhof*2.*parts[i].r*fabs(Un)/nu;
+        parts[i].ncoll_wall += 1;
       }
 
       omx = 0.5*(parts[i].ox+parts[i].ox0);
@@ -3009,6 +3014,7 @@ __global__ void collision_walls(part_struct *parts, int nparts, BC *bc, real eps
         }
         parts[i].iSt[q] = -15;
         parts[i].St[q] = 1./9.*parts[i].rho/rhof*2.*parts[i].r*fabs(Un)/nu;
+        parts[i].ncoll_wall += 1;
       }
 
       omx = 0.5*(parts[i].ox+parts[i].ox0);
@@ -3269,6 +3275,12 @@ __global__ void collision_parts(part_struct *parts, int nparts,
                       parts[i].iSt[q] = parts[j].N;
                       parts[i].St[q] = 1./9.*parts[i].rho/rhof*2.*parts[i].r
                         *fabs(udotn)/nu;
+                      // Increment collision counter -- will increment for each
+                      // particle involved in the collision.
+                      // Chances of integer overflow here are very slim, since 
+                      // this is on a per-particle basis. Could used unsigned 
+                      // long long int if really necessary
+                      parts[i].ncoll_part += 1;
                     }
 
                     real Vx = -utx + 0.5*(ai + aj + h)*ocrossnx;

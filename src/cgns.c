@@ -78,7 +78,7 @@ void cgns_recorder_part_write(void)
 
       // Notify output
       char fname[FILE_NAME_SIZE];
-      int sigfigs = ceil(log10(1. / rec_cgns_flow_dt));
+      int sigfigs = ceil(log10(1. / rec_cgns_part_dt));
       if(sigfigs < 1) sigfigs = 1;
       sprintf(fname, "part-%.*f.cgns", sigfigs, ttime);
       printf("N%d >> Writing %s at t = %e... done.\n", rank, fname, ttime);
@@ -642,6 +642,9 @@ void cgns_particles(real dtout)
     real *e_dry = malloc(nparts_subdom * sizeof(real));
     int *order = malloc(nparts_subdom * sizeof(int));
 
+    int *ncoll_part = malloc(nparts_subdom * sizeof(int));
+    int *ncoll_wall = malloc(nparts_subdom * sizeof(int));
+
     for (int n = 0; n < nparts_subdom; n++) {
       real mass = 4./3.*PI*(parts[n].rho - rho_f) * 
                     parts[n].r * parts[n].r * parts[n].r;
@@ -701,6 +704,9 @@ void cgns_particles(real dtout)
       coeff_fric[n] = parts[n].coeff_fric;
       e_dry[n] = parts[n].e_dry;
       order[n] = parts[n].order;
+
+      ncoll_part[n] = parts[n].ncoll_part;
+      ncoll_wall[n] = parts[n].ncoll_wall;
     }
 
     // create data nodes for coordinates
@@ -847,23 +853,29 @@ void cgns_particles(real dtout)
     cgp_field_write_data(fn, bn, zn, sn, fnr, nstart, nend, Lz);
 
 
-   cgp_field_write(fn, bn, zn, sn, RealDouble, "Density", &fnr);
-   cgp_field_write_data(fn, bn, zn, sn, fnr, nstart, nend, density);
+    cgp_field_write(fn, bn, zn, sn, RealDouble, "Density", &fnr);
+    cgp_field_write_data(fn, bn, zn, sn, fnr, nstart, nend, density);
 
-   cgp_field_write(fn, bn, zn, sn, RealDouble, "YoungsModulus", &fnr);
-   cgp_field_write_data(fn, bn, zn, sn, fnr, nstart, nend, E);
+    cgp_field_write(fn, bn, zn, sn, RealDouble, "YoungsModulus", &fnr);
+    cgp_field_write_data(fn, bn, zn, sn, fnr, nstart, nend, E);
 
-   cgp_field_write(fn, bn, zn, sn, RealDouble, "PoissonRatio", &fnr);
-   cgp_field_write_data(fn, bn, zn, sn, fnr, nstart, nend, sigma);
+    cgp_field_write(fn, bn, zn, sn, RealDouble, "PoissonRatio", &fnr);
+    cgp_field_write_data(fn, bn, zn, sn, fnr, nstart, nend, sigma);
 
-   cgp_field_write(fn, bn, zn, sn, RealDouble, "DryCoeffRest", &fnr);
-   cgp_field_write_data(fn, bn, zn, sn, fnr, nstart, nend, e_dry);
+    cgp_field_write(fn, bn, zn, sn, RealDouble, "DryCoeffRest", &fnr);
+    cgp_field_write_data(fn, bn, zn, sn, fnr, nstart, nend, e_dry);
 
-   cgp_field_write(fn, bn, zn, sn, RealDouble, "FricCoeff", &fnr);
-   cgp_field_write_data(fn, bn, zn, sn, fnr, nstart, nend, coeff_fric);
+    cgp_field_write(fn, bn, zn, sn, RealDouble, "FricCoeff", &fnr);
+    cgp_field_write_data(fn, bn, zn, sn, fnr, nstart, nend, coeff_fric);
 
-   cgp_field_write(fn, bn, zn, sn, Integer, "LambOrder", &fnr);
-   cgp_field_write_data(fn, bn, zn, sn, fnr, nstart, nend, order);
+    cgp_field_write(fn, bn, zn, sn, Integer, "LambOrder", &fnr);
+    cgp_field_write_data(fn, bn, zn, sn, fnr, nstart, nend, order);
+
+    cgp_field_write(fn, bn, zn, sn, Integer, "NParticleCollisions", &fnr);
+    cgp_field_write_data(fn, bn, zn, sn, fnr, nstart, nend, ncoll_part);
+
+    cgp_field_write(fn, bn, zn, sn, Integer, "NWallCollisions", &fnr);
+    cgp_field_write_data(fn, bn, zn, sn, fnr, nstart, nend, ncoll_wall);
 
     // Miscellaneous data - scalars, time
     cgsize_t nele[1];
@@ -938,6 +950,9 @@ void cgns_particles(real dtout)
     free(coeff_fric);
     free(e_dry);
     free(order);
+
+    free(ncoll_part);
+    free(ncoll_wall);
   }
 
   // Only free communicator on proc's that have it -- procs not in the

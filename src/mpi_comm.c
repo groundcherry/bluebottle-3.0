@@ -477,7 +477,7 @@ void mpi_parts_init(void)
   //  transfer-over-mpi
 
   // XXX Unfortunately, these need to be updated with part_struct
-  #define NMEMS 89              // number of members in part_struct
+  #define NMEMS 91              // number of members in part_struct
 
   int block_lengths[NMEMS] = {1,                // int N
                               1,                // real r
@@ -567,7 +567,9 @@ void mpi_parts_init(void)
                               MAX_COEFFS,       // real phinm_re0[MAX_COEFFS]
                               MAX_COEFFS,       // real phinm_im0[MAX_COEFFS]
                               MAX_COEFFS,       // real chinm_re0[MAX_COEFFS]
-                              MAX_COEFFS};      // real chinm_im0[MAX_COEFFS]
+                              MAX_COEFFS,       // real chinm_im0[MAX_COEFFS]
+                              1,                // int ncoll_part
+                              1};               // int ncoll_wall
 
   MPI_Datatype types[NMEMS] = {MPI_INT,           // int N
                                mpi_real,          // real r
@@ -657,7 +659,9 @@ void mpi_parts_init(void)
                                mpi_real,          // real phinm_re0[MAX_COEFFS]
                                mpi_real,          // real phinm_im0[MAX_COEFFS]
                                mpi_real,          // real chinm_re0[MAX_COEFFS]
-                               mpi_real};         // real chinm_im0[MAX_COEFFS]
+                               mpi_real,          // real chinm_im0[MAX_COEFFS]
+                               MPI_INT,           // int ncoll_part
+                               MPI_INT};          // int ncoll_wall
 
   MPI_Aint offsets[NMEMS];
 
@@ -750,6 +754,8 @@ void mpi_parts_init(void)
   offsets[86] = offsetof(part_struct, phinm_im0);
   offsets[87] = offsetof(part_struct, chinm_re0);
   offsets[88] = offsetof(part_struct, chinm_im0);
+  offsets[89] = offsetof(part_struct, ncoll_part);
+  offsets[90] = offsetof(part_struct, ncoll_wall);
 
   int n_members = NMEMS;
   MPI_Type_create_struct(n_members, block_lengths, offsets, types, &mpi_part_struct);

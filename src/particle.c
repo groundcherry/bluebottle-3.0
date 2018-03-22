@@ -516,6 +516,10 @@ void parts_init(void)
       parts[i].chinm_re0[j] = 0.;
       parts[i].chinm_im0[j] = 0.;
     }
+
+    // initialize collision counter
+    parts[i].ncoll_part = 0;
+    parts[i].ncoll_wall = 0;
   }
 
   #ifdef DDEBUG
