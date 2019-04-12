@@ -3280,9 +3280,11 @@ __global__ void collision_parts(part_struct *parts, int nparts,
                       +(1.-parts[i].sigma*parts[i].sigma)/Hi)/sqrt(1./ai)
                       *sqrt(-h);
 
-                    real sx = (Vx - Vx * nx) * dt;
-                    real sy = (Vy - Vy * ny) * dt;
-                    real sz = (Vz - Vz * nz) * dt;
+                    real Vdotn = Vx*nx + Vy*ny + Vz*nz;
+
+                    real sx = (Vx - Vdotn * nx) * dt;
+                    real sy = (Vy - Vdotn * ny) * dt;
+                    real sz = (Vz - Vdotn * nz) * dt;
 
                     ah = 0;
                     lnah = 0;
@@ -3309,9 +3311,10 @@ __global__ void collision_parts(part_struct *parts, int nparts,
                     Ftx = -kt * sx;
                     Fty = -kt * sy;
                     Ftz = -kt * sz;
-                    Ftx = Ftx - Ftx * nx;
-                    Fty = Fty - Fty * ny;
-                    Ftz = Ftz - Ftz * nz;
+                    real Ftdotn = Ftx*nx + Fty*ny + Ftz*nz;
+                    Ftx = Ftx - Ftdotn * nx;
+                    Fty = Fty - Ftdotn * ny;
+                    Ftz = Ftz - Ftdotn * nz;
                     real Ft = sqrt(Ftx*Ftx + Fty*Fty + Ftz*Ftz);
                     real Fn = sqrt(Fnx*Fnx + Fny*Fny + Fnz*Fnz);
                     if(Ft > coeff_fric * Fn) {
