@@ -106,6 +106,11 @@ void parts_read_input(void)
   real spring_l;
   int translating;
   int rotating;
+  real tmp_s;
+  int tmp_update;
+  real tmp_cp;
+  real tmp_rs;
+  int tmp_s_order;
 
   real max_a = -1.;
   int check_x = 0;
@@ -151,6 +156,11 @@ void parts_read_input(void)
       fret = fscanf(infile, "spring_l %lf\n", &spring_l);
       fret = fscanf(infile, "translating %d\n", &translating);
       fret = fscanf(infile, "rotating %d\n", &rotating);
+      fret = fscanf(infile, "s %lf\n", &tmp_s);
+      fret = fscanf(infile, "update %d\n", &tmp_update);
+      fret = fscanf(infile, "cp %lf\n", &tmp_cp);
+      fret = fscanf(infile, "rs %lf\n", &tmp_rs);
+      fret = fscanf(infile, "s_order %d\n", &tmp_s_order);
 
       // Particle total mass and volume
       real tmp = 4./3. * PI * rbuf * rbuf * rbuf;
@@ -266,6 +276,7 @@ void parts_read_input(void)
     fret = fscanf(infile, "(l/a) %lf\n", &interaction_length_ratio);
 
     ncoeffs_max = -1;
+    s_ncoeffs_max = -1;
 
     for (i = 0; i < NPARTS; i++) {
       fret = fscanf(infile, "\n");
@@ -286,6 +297,11 @@ void parts_read_input(void)
       fret = fscanf(infile, "spring_l %lf\n", &spring_l);
       fret = fscanf(infile, "translating %d\n", &translating);
       fret = fscanf(infile, "rotating %d\n", &rotating);
+      fret = fscanf(infile, "s %lf\n", &tmp_s);
+      fret = fscanf(infile, "update %d\n", &tmp_update);
+      fret = fscanf(infile, "cp %lf\n", &tmp_cp);
+      fret = fscanf(infile, "rs %lf\n", &tmp_rs);
+      fret = fscanf(infile, "s_order %d\n", &tmp_s_order);
 
       // Calculate max order (where all procs can get it)
       int ncoeffs = 0;
@@ -294,6 +310,11 @@ void parts_read_input(void)
       }
       if (ncoeffs > ncoeffs_max) ncoeffs_max = ncoeffs;
 
+      int s_ncoeffs = 0;
+      for(int j = 0; j <= tmp_s_order; j++) {
+        s_ncoeffs += 2*j + 1;
+      }
+      if (s_ncoeffs > s_ncoeffs_max) s_ncoeffs_max = s_ncoeffs;
 
       // Check if particle center is within subdomain
       // PERIODIC:
@@ -351,6 +372,11 @@ void parts_read_input(void)
         parts[ncount].spring_l = spring_l;
         parts[ncount].translating = translating;
         parts[ncount].rotating = rotating;
+        parts[ncount].s = tmp_s * (SCALAR >= 1);
+        parts[ncount].update = tmp_update * (SCALAR >= 1);
+        parts[ncount].cp = tmp_cp;
+        parts[ncount].srs = tmp_rs;
+        parts[ncount].sorder = tmp_s_order;
         ncount++;
       }
 
@@ -516,6 +542,10 @@ void parts_init(void)
       parts[i].chinm_re0[j] = 0.;
       parts[i].chinm_im0[j] = 0.;
     }
+
+    // initialize collision counter
+    parts[i].ncoll_part = 0;
+    parts[i].ncoll_wall = 0;
   }
 
   #ifdef DDEBUG
@@ -675,7 +705,38 @@ void parts_print(void)
       fprintf(outfile, " %lf", parts[n].chinm_im[i]);
     }
     fprintf(outfile, "\n");
+
+    fprintf(outfile, "parts[%d].s = %lf\n", n, parts[n].s);
+    fprintf(outfile, "parts[%d].update = %d\n", n, parts[n].update);
+    fprintf(outfile, "parts[%d].srs = %lf\n", n, parts[n].srs);
+    fprintf(outfile, "parts[%d].q = %lf\n", n, parts[n].q);
+    fprintf(outfile, "parts[%d].cp = %lf\n", n, parts[n].cp);
+    fprintf(outfile, "parts[%d].sorder = %d\n", n, parts[n].sorder);
+    fprintf(outfile, "parts[%d].sncoeff = %d\n", n, parts[n].sncoeff);
     
+    fprintf(outfile, "parts[%d].anm_re:\n\t", n);
+    for (int i = 0; i < S_MAX_COEFFS; i++) {
+      fprintf(outfile, " %lf", parts[n].anm_re[i]);
+    }
+    fprintf(outfile, "\n");
+    
+    fprintf(outfile, "parts[%d].anm_im:\n\t", n);
+    for (int i = 0; i < S_MAX_COEFFS; i++) {
+      fprintf(outfile, " %lf", parts[n].anm_im[i]);
+    }
+    fprintf(outfile, "\n");
+    
+    fprintf(outfile, "parts[%d].anm_re0:\n\t", n);
+    for (int i = 0; i < S_MAX_COEFFS; i++) {
+      fprintf(outfile, " %lf", parts[n].anm_re0[i]);
+    }
+    fprintf(outfile, "\n");
+    
+    fprintf(outfile, "parts[%d].anm_im0:\n\t", n);
+    for (int i = 0; i < S_MAX_COEFFS; i++) {
+      fprintf(outfile, " %lf", parts[n].anm_im0[i]);
+    }
+    fprintf(outfile, "\n");
   }
   fclose(outfile);
 }

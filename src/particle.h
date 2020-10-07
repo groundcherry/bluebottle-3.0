@@ -30,7 +30,7 @@
  */
 
 #ifndef _PARTICLE_H
-#define _PARTICLE_H 
+#define _PARTICLE_H
 
 /* #DEFINE's */
 
@@ -59,6 +59,19 @@
  *  quadrature can handle up to 4th order. Note that this is different from
  *  ncoeffs_max, which is the actual maximum number of coefficients that we've
  *  specified over all of the particles.
+ ******
+ */
+
+/****d* particle/S_MAX_COEFFS
+ * NAME
+ *  S_MAX_COEFFS
+ * TYPE
+ */
+#define S_MAX_COEFFS 25
+/*
+ * PURPOSE
+ *  Define the maximum possible number of coefficients to use given that the
+ *  quadrature can handle up to 4th order. This one is for scalar.
  ******
  */
 
@@ -417,11 +430,24 @@ typedef struct part_struct {
   real phinm_im0[MAX_COEFFS];
   real chinm_re0[MAX_COEFFS];
   real chinm_im0[MAX_COEFFS];
+  int ncoll_part;
+  int ncoll_wall;
+  real s;
+  int update;
+  real srs;
+  real q;
+  real cp;
+  int sorder;
+  int sncoeff;
+  real anm_re[S_MAX_COEFFS];
+  real anm_im[S_MAX_COEFFS];
+  real anm_re0[S_MAX_COEFFS];
+  real anm_im0[S_MAX_COEFFS];
 } part_struct;
 /*
  * PURPOSE
  *  Carry physical information regarding a particle.
- *  XXX NOTE: mpi_part_struct in mpi_comm.c:mpi_parts_init needs to be reflect
+ *  XXX NOTE: mpi_part_struct in mpi_comm.c:mpi_parts_init needs to reflect
  *    any changes to this part_struct
  *  XXX NOTE: cgns and vtk outputs need to reflect any changes as well
  * MEMBERS
@@ -508,6 +534,8 @@ typedef struct part_struct {
  *  * phinm_im0 -- imaginary parts of Lamb's coefficients phi_nm at previous step
  *  * chinm_re0 -- real parts of Lamb's coefficients chi_nm at previous step
  *  * chinm_im0 -- imaginary parts of Lamb's coefficients chi_nm at previous step
+ *  * ncoll_part -- cumulative number of particle collisions each particle has seen
+ *  * ncoll_wall -- cumulative number of wall collisions each particle has seen
  ******
  */
 

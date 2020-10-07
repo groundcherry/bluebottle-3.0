@@ -59,6 +59,7 @@
   #include "cgns.h"
 #endif
 #include "physalis.h"
+#include "scalar.h"
 
 /* MACROS */
 
@@ -627,7 +628,7 @@ extern real lamb_cut;
  *  greater than 1e-2.
  ******
  */
-
+extern real osci_f;
 /****v* bluebottle/init_cond
  * NAME
  *  init_cond
@@ -2663,6 +2664,7 @@ void cuda_dom_malloc_host(void);
  *  cuda_dom_malloc_dev()
  * USAGE
  */
+void cuda_update_bc();
 void cuda_dom_malloc_dev(void);
 /*
  * FUNCTION
@@ -2744,6 +2746,18 @@ void cuda_blocks_init(void);
 /*
  * FUNCTION
  *  Initialize the cuda threads and block sizes
+ ******
+ */
+
+/****f* bluebottle/cuda_blocks_write()
+ * NAME
+ *  cuda_blocks_write()
+ * USAGE
+ */
+void cuda_blocks_write(void);
+/*
+ * FUNCTION
+ *  Write block sizes to debug file.
  ******
  */
 

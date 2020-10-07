@@ -477,7 +477,7 @@ void mpi_parts_init(void)
   //  transfer-over-mpi
 
   // XXX Unfortunately, these need to be updated with part_struct
-  #define NMEMS 89              // number of members in part_struct
+  #define NMEMS 102              // number of members in part_struct
 
   int block_lengths[NMEMS] = {1,                // int N
                               1,                // real r
@@ -567,7 +567,20 @@ void mpi_parts_init(void)
                               MAX_COEFFS,       // real phinm_re0[MAX_COEFFS]
                               MAX_COEFFS,       // real phinm_im0[MAX_COEFFS]
                               MAX_COEFFS,       // real chinm_re0[MAX_COEFFS]
-                              MAX_COEFFS};      // real chinm_im0[MAX_COEFFS]
+                              MAX_COEFFS,       // real chinm_im0[MAX_COEFFS]
+                              1,                // int ncoll_part
+                              1,                // int ncoll_wall
+                              1,                // real s
+                              1,                // int update
+                              1,                // real srs
+                              1,                // real q
+                              1,                // real cp
+                              1,                // int sorder
+                              1,                // int sncoeff
+                              S_MAX_COEFFS,     // real anm_re[S_MAX_COEFFS]
+                              S_MAX_COEFFS,     // real anm_im[S_MAX_COEFFS]
+                              S_MAX_COEFFS,     // real anm_re0[S_MAX_COEFFS]
+                              S_MAX_COEFFS};    // real anm_im0[S_MAX_COEFFS]};
 
   MPI_Datatype types[NMEMS] = {MPI_INT,           // int N
                                mpi_real,          // real r
@@ -657,7 +670,20 @@ void mpi_parts_init(void)
                                mpi_real,          // real phinm_re0[MAX_COEFFS]
                                mpi_real,          // real phinm_im0[MAX_COEFFS]
                                mpi_real,          // real chinm_re0[MAX_COEFFS]
-                               mpi_real};         // real chinm_im0[MAX_COEFFS]
+                               mpi_real,          // real chinm_im0[MAX_COEFFS]
+                               MPI_INT,           // int ncoll_part
+                               MPI_INT,           // int ncoll_wall
+                               mpi_real,          // real s
+                               MPI_INT,           // int update
+                               mpi_real,          // real srs
+                               mpi_real,          // real q
+                               mpi_real,          // real cp
+                               MPI_INT,           // int sorder
+                               MPI_INT,           // int sncoeff
+                               mpi_real,          // real anm_re[S_MAX_COEFFS]
+                               mpi_real,          // real anm_im[S_MAX_COEFFS]
+                               mpi_real,          // real anm_re0[S_MAX_COEFFS]
+                               mpi_real};         // real anm_im0[S_MAX_COEFFS]
 
   MPI_Aint offsets[NMEMS];
 
@@ -750,6 +776,19 @@ void mpi_parts_init(void)
   offsets[86] = offsetof(part_struct, phinm_im0);
   offsets[87] = offsetof(part_struct, chinm_re0);
   offsets[88] = offsetof(part_struct, chinm_im0);
+  offsets[89] = offsetof(part_struct, ncoll_part);
+  offsets[90] = offsetof(part_struct, ncoll_wall);
+  offsets[91] = offsetof(part_struct, s);
+  offsets[92] = offsetof(part_struct, update);
+  offsets[93] = offsetof(part_struct, srs);
+  offsets[94] = offsetof(part_struct, q);
+  offsets[95] = offsetof(part_struct, cp);
+  offsets[96] = offsetof(part_struct, sorder);
+  offsets[97] = offsetof(part_struct, sncoeff);
+  offsets[98] = offsetof(part_struct, anm_re);
+  offsets[99] = offsetof(part_struct, anm_im);
+  offsets[100] = offsetof(part_struct, anm_re0);
+  offsets[101] = offsetof(part_struct, anm_im0);
 
   int n_members = NMEMS;
   MPI_Type_create_struct(n_members, block_lengths, offsets, types, &mpi_part_struct);
@@ -763,7 +802,6 @@ void mpi_parts_init(void)
   MPI_Type_get_extent(tmp_type, &lower_bound, &extent);
   MPI_Type_create_resized(tmp_type, lower_bound, extent, &mpi_part_struct);
 */
-
   MPI_Type_commit(&mpi_part_struct);
 
   /* Create windows */

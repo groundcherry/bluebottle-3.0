@@ -139,6 +139,36 @@ void seeder_read_input(void)
   fret = fscanf(infile, "spring_l %lf\n", &spring_l);
   fret = fscanf(infile, "translating %d\n", &translating);
   fret = fscanf(infile, "rotating %d\n", &rotating);
+  fret = fscanf(infile, "s %lf\n", &ss);
+  fret = fscanf(infile, "update %d\n", &update);
+  fret = fscanf(infile, "cp %lf\n", &cp);
+  fret = fscanf(infile, "rs %lf\n", &srs);
+  fret = fscanf(infile, "s_order %d\n", &sorder);
+
+  printf("\nReading particle info ...\n");
+  printf("r %lf\n", a);
+  printf("(x, y, z) %lf %lf %lf\n", x, y, z);
+  printf("(u, v, w) %lf %lf %lf\n", u, v, w);
+  printf("(aFx, aFy, aFz) %lf %lf %lf\n", aFx, aFy, aFz);
+  printf("(aLx, aLy, aLz) %lf %lf %lf\n", aLx, aLy, aLz);
+  printf("rho %lf\n", rho);
+  printf("E %lf\n", E);
+  printf("sigma %lf\n", sigma);
+  printf("e_dry %lf\n", e_dry);
+  printf("coeff_fric %lf\n", coeff_fric);
+  printf("order %d\n", order);
+  printf("rs/r %lf\n", rs);
+  printf("spring_k %lf\n", spring_k);
+  printf("spring (x, y, z) %lf %lf %lf\n", spring_x, spring_y, spring_z);
+  printf("spring_l %lf\n", spring_l);
+  printf("translating %d\n", translating);
+  printf("rotating %d\n", rotating);
+  printf("s %lf\n", ss);
+  printf("update %d\n", update);
+  printf("cp %lf\n", cp);
+  printf("rs %lf\n", srs);
+  printf("s_order %d\n", sorder);
+  printf("\n");
 
   // Check input
   int check = 0;
@@ -201,17 +231,23 @@ void domain_read_input(void)
   fret = fscanf(infile, "PHYSICAL PARAMETERS\n");
   fret = fscanf(infile, "rho_f %lf\n", &fbuf);
   fret = fscanf(infile, "nu %lf\n", &fbuf);
+  fret = fscanf(infile, "s_D %lf\n", &fbuf);
+  fret = fscanf(infile, "s_k %lf\n", &fbuf);
+  fret = fscanf(infile, "s_beta %lf\n", &fbuf);
+  fret = fscanf(infile, "s_ref %lf\n", &fbuf);
   fret = fscanf(infile, "\n");
 
   fret = fscanf(infile, "SIMULATION PARAMETERS\n");
   fret = fscanf(infile, "duration %lf\n", &fbuf);
   fret = fscanf(infile, "CFL %lf\n", &fbuf);
+  fret = fscanf(infile, "SCALAR %lf\n", &fbuf);
   fret = fscanf(infile, "pp_max_iter %lf\n", &fbuf);
   fret = fscanf(infile, "pp_residual %lf\n", &fbuf);
   fret = fscanf(infile, "lamb_max_iter %lf\n", &fbuf);
   fret = fscanf(infile, "lamb_residual %lf\n", &fbuf);
   fret = fscanf(infile, "lamb_relax %lf\n", &fbuf);
   fret = fscanf(infile, "lamb_cut %lf\n", &fbuf);
+  fret = fscanf(infile, "s_lamb_cut %lf\n", &fbuf);
   fret = fscanf(infile, "\n");
 
   fret = fscanf(infile, "BOUNDARY CONDITIONS\n");
@@ -432,6 +468,11 @@ void seed_array(void)
     fprintf(ofile, "spring_l %f\n", spring_l);
     fprintf(ofile, "translating %d\n", translating);
     fprintf(ofile, "rotating %d\n", rotating);
+    fprintf(ofile, "s %f\n", ss);
+    fprintf(ofile, "update %d\n", update);
+    fprintf(ofile, "cp %f\n", cp);
+    fprintf(ofile, "rs %f\n", srs);
+    fprintf(ofile, "s_order %d\n", sorder);
   }
 
   // close the file
@@ -464,7 +505,7 @@ void seeder(void)
   int attempts = 1;
   int fail = 0;
   int redo = 1;
-  double gap = 1.;
+  double gap = 1.15;
   double xx, yy, zz;
 
   /* Allocate parts */
@@ -1002,6 +1043,11 @@ void seeder(void)
     fprintf(ofile, "spring_l %f\n", spring_l);
     fprintf(ofile, "translating %d\n", translating);
     fprintf(ofile, "rotating %d\n", rotating);
+    fprintf(ofile, "s %f\n", ss);
+    fprintf(ofile, "update %d\n", update);
+    fprintf(ofile, "cp %f\n", cp);
+    fprintf(ofile, "rs %f\n", srs);
+    fprintf(ofile, "s_order %d\n", sorder);
   }
 
   // close the file
@@ -1042,6 +1088,11 @@ double spring_x, spring_y, spring_z;
 double spring_l;
 int translating;
 int rotating;
+double ss;
+int update;
+double cp;
+double srs;
+int sorder;
 
 dom_struct dom;
 part_struct *parts;

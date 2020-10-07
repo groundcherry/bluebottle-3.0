@@ -1654,7 +1654,7 @@ __global__ void part_BC_w(real *w, int *phase, int *flag_w, part_struct *parts,
 
 __global__ void part_BC_p(real *p, real *p_rhs, int *phase, int *phase_shell,
   part_struct *parts, real mu, real nu, real dt, real dt0, gradP_struct gradP,
-  real rho_f, int nparts)
+  real rho_f, int nparts, real s_beta, real s_ref, g_struct g)
 {
   int ti = blockDim.x*blockIdx.x + threadIdx.x + DOM_BUF;
   int tj = blockDim.y*blockIdx.y + threadIdx.y + DOM_BUF;
@@ -1734,9 +1734,13 @@ __global__ void part_BC_p(real *p, real *p_rhs, int *phase, int *phase_shell,
       real ocrossr2 = (oy*z - oz*y) * (oy*z - oz*y);
       ocrossr2 += (ox*z - oz*x) * (ox*z - oz*x);
       ocrossr2 += (ox*y - oy*x) * (ox*y - oy*x);
+      real bousiq_x = -s_beta*(parts[P].s - s_ref)*g.x;
+      real bousiq_y = -s_beta*(parts[P].s - s_ref)*g.y;
+      real bousiq_z = -s_beta*(parts[P].s - s_ref)*g.z;
       real rhoV = rho_f;
-      real accdotr = (-gradP.x/rhoV - udot)*x + (-gradP.y/rhoV - vdot)*y
-        + (-gradP.z/rhoV - wdot)*z;
+      real accdotr = (-gradP.x/rhoV - udot + bousiq_x)*x +
+                     (-gradP.y/rhoV - vdot + bousiq_y)*y +
+                     (-gradP.z/rhoV - wdot + bousiq_z)*z;
       pp_tmp += 0.5 * rho_f * ocrossr2 + rho_f * accdotr;
       //pp_tmp00 += 0.5 * rho_f * ocrossr2 + rho_f * accdotr;
 
@@ -1752,7 +1756,8 @@ __global__ void part_BC_p(real *p, real *p_rhs, int *phase, int *phase_shell,
 }
 
 __global__ void part_BC_p_fill(real *p, int *phase, part_struct *parts,
-  real mu, real nu, real rho_f, gradP_struct gradP, int nparts)
+  real mu, real nu, real rho_f, gradP_struct gradP, int nparts,
+  real s_beta, real s_ref, g_struct g)
 {
   int ti = blockDim.x*blockIdx.x + threadIdx.x + DOM_BUF;
   int tj = blockDim.y*blockIdx.y + threadIdx.y + DOM_BUF;
@@ -1815,8 +1820,12 @@ __global__ void part_BC_p_fill(real *p, int *phase, part_struct *parts,
       ocrossr2 += (ox*z - oz*x) * (ox*z - oz*x);
       ocrossr2 += (ox*y - oy*x) * (ox*y - oy*x);
       real rhoV = rho_f;
-      real accdotr = (-gradP.x/rhoV - udot)*x + (-gradP.y/rhoV - vdot)*y
-        + (-gradP.z/rhoV - wdot)*z;
+      real bousiq_x = -s_beta*(parts[P].s - s_ref)*g.x;
+      real bousiq_y = -s_beta*(parts[P].s - s_ref)*g.y;
+      real bousiq_z = -s_beta*(parts[P].s - s_ref)*g.z;
+      real accdotr = (-gradP.x/rhoV - udot + bousiq_x)*x +
+                     (-gradP.y/rhoV - vdot + bousiq_y)*y +
+                     (-gradP.z/rhoV - wdot + bousiq_z)*z;
       pp_tmp += 0.5 * rho_f * ocrossr2 + rho_f * accdotr;
 
       // write BC if inside particle, otherwise leave alone
@@ -2431,6 +2440,7 @@ __global__ void collision_walls(part_struct *parts, int nparts, BC *bc, real eps
         }
         parts[i].iSt[q] = -10;
         parts[i].St[q] = 1./9.*parts[i].rho/rhof*2.*parts[i].r*fabs(Un)/nu;
+        parts[i].ncoll_wall += 1;
       }
 
       omx = 0.5*(parts[i].ox+parts[i].ox0);
@@ -2549,6 +2559,7 @@ __global__ void collision_walls(part_struct *parts, int nparts, BC *bc, real eps
         }
         parts[i].iSt[q] = -11;
         parts[i].St[q] = 1./9.*parts[i].rho/rhof*2.*parts[i].r*fabs(Un)/nu;
+        parts[i].ncoll_wall += 1;
       }
 
       omx = 0.5*(parts[i].ox+parts[i].ox0);
@@ -2664,6 +2675,7 @@ __global__ void collision_walls(part_struct *parts, int nparts, BC *bc, real eps
         }
         parts[i].iSt[q] = -12;
         parts[i].St[q] = 1./9.*parts[i].rho/rhof*2.*parts[i].r*fabs(Un)/nu;
+        parts[i].ncoll_wall += 1;
       }
 
       omx = 0.5*(parts[i].ox+parts[i].ox0);
@@ -2779,6 +2791,7 @@ __global__ void collision_walls(part_struct *parts, int nparts, BC *bc, real eps
         }
         parts[i].iSt[q] = -13;
         parts[i].St[q] = 1./9.*parts[i].rho/rhof*2.*parts[i].r*fabs(Un)/nu;
+        parts[i].ncoll_wall += 1;
       }
 
       omx = 0.5*(parts[i].ox+parts[i].ox0);
@@ -2894,6 +2907,7 @@ __global__ void collision_walls(part_struct *parts, int nparts, BC *bc, real eps
         }
         parts[i].iSt[q] = -14;
         parts[i].St[q] = 1./9.*parts[i].rho/rhof*2.*parts[i].r*fabs(Un)/nu;
+        parts[i].ncoll_wall += 1;
       }
 
       omx = 0.5*(parts[i].ox+parts[i].ox0);
@@ -3009,6 +3023,7 @@ __global__ void collision_walls(part_struct *parts, int nparts, BC *bc, real eps
         }
         parts[i].iSt[q] = -15;
         parts[i].St[q] = 1./9.*parts[i].rho/rhof*2.*parts[i].r*fabs(Un)/nu;
+        parts[i].ncoll_wall += 1;
       }
 
       omx = 0.5*(parts[i].ox+parts[i].ox0);
@@ -3269,6 +3284,12 @@ __global__ void collision_parts(part_struct *parts, int nparts,
                       parts[i].iSt[q] = parts[j].N;
                       parts[i].St[q] = 1./9.*parts[i].rho/rhof*2.*parts[i].r
                         *fabs(udotn)/nu;
+                      // Increment collision counter -- will increment for each
+                      // particle involved in the collision.
+                      // Chances of integer overflow here are very slim, since 
+                      // this is on a per-particle basis. Could used unsigned 
+                      // long long int if really necessary
+                      parts[i].ncoll_part += 1;
                     }
 
                     real Vx = -utx + 0.5*(ai + aj + h)*ocrossnx;

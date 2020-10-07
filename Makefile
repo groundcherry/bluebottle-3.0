@@ -75,7 +75,8 @@ SRCC =	bluebottle.c	\
 	particle.c	\
 	recorder.c	\
 	rng.c		\
-	vtk.c
+	vtk.c		\
+	scalar.c
 
 SRCCUDA = cuda_bluebottle.cu	\
 	cuda_solver.cu		\
@@ -85,7 +86,9 @@ SRCCUDA = cuda_bluebottle.cu	\
 	solver_kernel.cu	\
 	particle_kernel.cu	\
 	physalis_kernel.cu	\
-	cuda_testing.cu
+	cuda_testing.cu		\
+	cuda_scalar.cu		\
+	scalar_kernel.cu
 
 
 EXTRA = Makefile	\
@@ -102,7 +105,9 @@ EXTRA = Makefile	\
 	rng.h		\
 	vtk.h		\
 	bluebottle.cuh	\
-	cuda_testing.h
+	cuda_testing.h	\
+	scalar.h		\
+	cuda_scalar.h
 
 ifeq ($(CGNS_OUTPUT),TRUE)
 	SRCC += cgns.c

@@ -140,46 +140,82 @@ __global__ void check_nodes(int nparts, part_struct *parts, BC *bc,
 
   // We use <= for E,N,T and > for W,S,B -- allows us to do [start,end) on all 
   // subdomains regardless of bc
-  parts[part].nodes[node] += (WEST_WALL + 1) *    // set equal to WEST_WALL...
+  parts[part].nodes[node] += (WEST_WALL_D + 1) *    // set equal to WEST_WALL_D...
               (x - _dom.xs < 0) *                 // if outside domain &
               (_dom.I == DOM->Is) *                // if edge domain & DIRICHLET
               (bc->uW == DIRICHLET || bc->vW == DIRICHLET || bc->wW == DIRICHLET)*
               (parts[part].nodes[node] == -1);
 
-  parts[part].nodes[node] += (EAST_WALL + 1) * 
+  parts[part].nodes[node] += (WEST_WALL_N + 1) *
+              (x - _dom.xs < 0) *
+              (_dom.I == DOM->Is) *
+              (bc->uW == NEUMANN || bc->vW == NEUMANN || bc->wW == NEUMANN)*
+              (parts[part].nodes[node] == -1);
+
+  parts[part].nodes[node] += (EAST_WALL_D + 1) *
               (x - _dom.xe >= 0) *
               (_dom.I == DOM->Ie) *
               (bc->uE == DIRICHLET || bc->vE == DIRICHLET || bc->wE == DIRICHLET)*
               (parts[part].nodes[node] == -1);
 
-  parts[part].nodes[node] += (SOUTH_WALL + 1) *
+  parts[part].nodes[node] += (EAST_WALL_N + 1) *
+              (x - _dom.xe >= 0) *
+              (_dom.I == DOM->Ie) *
+              (bc->uE == NEUMANN || bc->vE == NEUMANN || bc->wE == NEUMANN)*
+              (parts[part].nodes[node] == -1);
+
+  parts[part].nodes[node] += (SOUTH_WALL_D + 1) *
               (y - _dom.ys < 0) *
               (_dom.J == DOM->Js) *
               (bc->uS == DIRICHLET || bc->vS == DIRICHLET || bc->wS == DIRICHLET)*
               (parts[part].nodes[node] == -1);
 
-  parts[part].nodes[node] += (NORTH_WALL + 1) *
+  parts[part].nodes[node] += (SOUTH_WALL_N + 1) *
+              (y - _dom.ys < 0) *
+              (_dom.J == DOM->Js) *
+              (bc->uS == NEUMANN || bc->vS == NEUMANN || bc->wS == NEUMANN)*
+              (parts[part].nodes[node] == -1);
+
+  parts[part].nodes[node] += (NORTH_WALL_D + 1) *
               (y - _dom.ye >= 0) *
               (_dom.J == DOM->Je) *
               (bc->uN == DIRICHLET || bc->vN == DIRICHLET || bc->wN == DIRICHLET)*
               (parts[part].nodes[node] == -1);
 
-  parts[part].nodes[node] += (BOTTOM_WALL + 1) *
+  parts[part].nodes[node] += (NORTH_WALL_N + 1) *
+              (y - _dom.ye >= 0) *
+              (_dom.J == DOM->Je) *
+              (bc->uN == NEUMANN || bc->vN == NEUMANN || bc->wN == NEUMANN)*
+              (parts[part].nodes[node] == -1);
+
+  parts[part].nodes[node] += (BOTTOM_WALL_D + 1) *
               (z - _dom.zs < 0) *
               (_dom.K == DOM->Ks) *
               (bc->uB == DIRICHLET || bc->vB == DIRICHLET || bc->wB == DIRICHLET)*
               (parts[part].nodes[node] == -1);
 
-  parts[part].nodes[node] += (TOP_WALL + 1) *
+  parts[part].nodes[node] += (BOTTOM_WALL_N + 1) *
+              (z - _dom.zs < 0) *
+              (_dom.K == DOM->Ks) *
+              (bc->uB == NEUMANN || bc->vB == NEUMANN || bc->wB == NEUMANN)*
+              (parts[part].nodes[node] == -1);
+
+  parts[part].nodes[node] += (TOP_WALL_D + 1) *
               (z - _dom.ze >= 0) *
               (_dom.K == DOM->Ke) *
               (bc->uT == DIRICHLET || bc->vT == DIRICHLET || bc->wT == DIRICHLET)*
+              (parts[part].nodes[node] == -1);
+
+  parts[part].nodes[node] += (TOP_WALL_N + 1) *
+              (z - _dom.ze >= 0) *
+              (_dom.K == DOM->Ke) *
+              (bc->uT == NEUMANN || bc->vT == NEUMANN || bc->wT == NEUMANN)*
               (parts[part].nodes[node] == -1);
 }
 
 __global__ void interpolate_nodes(real *p, real *u, real *v, real *w,
   real rho_f, real nu, gradP_struct gradP, part_struct *parts, real *pp,
-  real *ur, real *ut, real *up, BC *bc)
+  real *ur, real *ut, real *up, BC *bc, real s_beta, real s_ref, g_struct g)
 {
   int node = threadIdx.x;
   int part = blockIdx.x;
@@ -209,10 +245,12 @@ __global__ void interpolate_nodes(real *p, real *u, real *v, real *w,
   a5 *= a5 * parts[part].r;                 // r^5
 
   real uu, vv, ww;  // temporary nodes for Cartesian result of interpolation
-  real uuwall, vvwall, wwwall;
+  real uuwalli, uuwallj, uuwallk;
+  real vvwalli, vvwallj, vvwallk;
+  real wwwalli, wwwallj, wwwallk;
 
   int i, j, k;  // index of cells containing node
-  int oob;      // out of bounds indicator, 1 if out of bounds else 0
+  int oobi, oobj, oobk, oob;  // out of bounds indicator, 1 if out of bounds else 0
   int C, Ce, Cw, Cn, Cs, Ct, Cb;  // cell indices
   real xx, yy, zz;  // Cartesian location of p,u,v,w
 
@@ -267,15 +305,15 @@ __global__ void interpolate_nodes(real *p, real *u, real *v, real *w,
 
   /* Interpolate Pressure */
   // Find if out-of-bounds -- 1 if oob, 0 if in bounds
-  oob = i < _dom.Gcc._is || i > _dom.Gcc._ie ||
-        j < _dom.Gcc._js || j > _dom.Gcc._je ||
-        k < _dom.Gcc._ks || k > _dom.Gcc._ke;
+  oob = i < _dom.Gcc._is || i > _dom.Gcc._ie
+     || j < _dom.Gcc._js || j > _dom.Gcc._je
+     || k < _dom.Gcc._ks || k > _dom.Gcc._ke;
 
   // Correct indices so we don't have out-of-bounds reads
   // If out out bounds, we'll read good info but trash the results
   i += (_dom.Gcc._is - i) * (i < _dom.Gcc._is);
   j += (_dom.Gcc._js - j) * (j < _dom.Gcc._js);
-  k += (_dom.Gcc._ks - k) * (k < _dom.Gcc._is);
+  k += (_dom.Gcc._ks - k) * (k < _dom.Gcc._ks);
   i += (_dom.Gcc._ie - i) * (i > _dom.Gcc._ie);
   j += (_dom.Gcc._je - j) * (j > _dom.Gcc._je);
   k += (_dom.Gcc._ke - k) * (k > _dom.Gcc._ke);
@@ -300,17 +338,32 @@ __global__ void interpolate_nodes(real *p, real *u, real *v, real *w,
   real dpdz = 0.5*(p[Ct] - p[Cb]) * ddz;
   pp[node + NNODES*part] = p[C] + dpdx*(x - xx) + dpdy*(y - yy) + dpdz*(z - zz);
 
+  // set ppwall equal to
+/*  ppwall = (parts[part].nodes[node] == WEST_WALL_D || parts[part].nodes[node] == WEST_WALL_N)*p[Cw]
+            + (parts[part].nodes[node] == EAST_WALL_D || parts[part].nodes[node] == EAST_WALL_N)*p[Ce]
+            + (parts[part].nodes[node] == SOUTH_WALL_D || parts[part].nodes[node] == SOUTH_WALL_N)*p[Cs]
+            + (parts[part].nodes[node] == NORTH_WALL_D || parts[part].nodes[node] == NORTH_WALL_N)*p[Cn]
+            + (parts[part].nodes[node] == BOTTOM_WALL_D || parts[part].nodes[node] == BOTTOM_WALL_N)*p[Cb]
+            + (parts[part].nodes[node] == TOP_WALL_D || parts[part].nodes[node] == TOP_WALL_N)*p[Ct];
+*/
   // switch to particle rest frame
   real ocrossr2 = (oy*zp - oz*yp) * (oy*zp - oz*yp);
   ocrossr2 += (ox*zp - oz*xp) * (ox*zp - oz*xp);
   ocrossr2 += (ox*yp - oy*xp) * (ox*yp - oy*xp);
-  real accdotr = (-gradP.x * irho_f - udot)*xp + (-gradP.y * irho_f - vdot)*yp
-          + (-gradP.z * irho_f - wdot)*zp;
+  real bousiq_x = -s_beta*(parts[part].s - s_ref)*g.x;
+  real bousiq_y = -s_beta*(parts[part].s - s_ref)*g.y;
+  real bousiq_z = -s_beta*(parts[part].s - s_ref)*g.z;
+  real accdotr = (-gradP.x * irho_f - udot + bousiq_x)*xp +
+                 (-gradP.y * irho_f - vdot + bousiq_y)*yp +
+                 (-gradP.z * irho_f - wdot + bousiq_z)*zp;
   pp[node + NNODES*part] -= 0.5 * rho_f * ocrossr2 + rho_f * accdotr;
+//  ppwall -= 0.5 * rho_f * ocrossr2 + rho_f * accdotr;
 
   // Zero if this node intersects wall or is out of bounds
-  pp[node + NNODES*part] = pp[node+part*NNODES] * (1 - oob) * 
+  pp[node + NNODES*part] = pp[node+part*NNODES] * (1 - oob) *
                               (parts[part].nodes[node] == -1);
+//  pp[node + NNODES*part] = ppwall * oob * (parts[part].nodes[node] < -1) +
+//     pp[node + NNODES*part] * (1 - oob) * (parts[part].nodes[node] == -1);
 
   /* Interpolate Velocities */
   // don't work with cell-center anymore; find closest cell face in x-direction
@@ -347,15 +400,15 @@ __global__ void interpolate_nodes(real *p, real *u, real *v, real *w,
 
   // Find if out-of-bounds -- 1 if oob, 0 if in bounds
   // Use >= so domain is [start, end)
-  oob = i < _dom.Gfx._is || i >= _dom.Gfx._ie ||
-        j < _dom.Gfx._js || j > _dom.Gfx._je ||
-        k < _dom.Gfx._ks || k > _dom.Gfx._ke;
+  oobi = i < _dom.Gcc._is || i > _dom.Gcc._ie;
+  oobj = j < _dom.Gcc._js || j > _dom.Gcc._je;
+  oobk = k < _dom.Gcc._ks || k > _dom.Gcc._ke;
 
   // Correct indices so we don't have out-of-bounds reads
   // If out out bounds, we'll read good info but trash the results
   i += (_dom.Gfx._is - i) * (i < _dom.Gfx._is);
   j += (_dom.Gfx._js - j) * (j < _dom.Gfx._js);
-  k += (_dom.Gfx._ks - k) * (k < _dom.Gfx._is);
+  k += (_dom.Gfx._ks - k) * (k < _dom.Gfx._ks);
   i += (_dom.Gfx._ie - i) * (i >= _dom.Gfx._ie);
   j += (_dom.Gfx._je - j) * (j > _dom.Gfx._je);
   k += (_dom.Gfx._ke - k) * (k > _dom.Gfx._ke);
@@ -382,12 +435,12 @@ __global__ void interpolate_nodes(real *p, real *u, real *v, real *w,
   uu = u[C] + dudx * (x - xx) + dudy * (y - yy) + dudz * (z - zz);
 
   // set uuwall equal to interfering wall u-velocity
-  uuwall = (parts[part].nodes[node] == WEST_WALL)*bc->uWD
-            + (parts[part].nodes[node] == EAST_WALL)*bc->uED
-            + (parts[part].nodes[node] == SOUTH_WALL)*bc->uSD
-            + (parts[part].nodes[node] == NORTH_WALL)*bc->uND
-            + (parts[part].nodes[node] == BOTTOM_WALL)*bc->uBD
-            + (parts[part].nodes[node] == TOP_WALL)*bc->uTD;
+  uuwalli = (parts[part].nodes[node] == WEST_WALL_D)*bc->uWD
+          + (parts[part].nodes[node] == EAST_WALL_D)*bc->uED;
+  uuwallj = (parts[part].nodes[node] == SOUTH_WALL_D)*bc->uSD
+          + (parts[part].nodes[node] == NORTH_WALL_D)*bc->uND;
+  uuwallk = (parts[part].nodes[node] == BOTTOM_WALL_D)*bc->uBD
+          + (parts[part].nodes[node] == TOP_WALL_D)*bc->uTD;
 
   // switch to particle rest frame
   real ocrossr_x = oy*zp - oz*yp;
@@ -395,12 +448,15 @@ __global__ void interpolate_nodes(real *p, real *u, real *v, real *w,
   real tmp_u = parts[part].u + ocrossr_x +
                 0.1 * inu * (rs5 - a5) * irs3 * odotcrossr_x; 
   uu -= tmp_u;
-  uuwall -= tmp_u;
-
+  uuwalli -= tmp_u;
+  uuwallj -= tmp_u;
+  uuwallk -= tmp_u;
 
   // set actual node value based on whether it is interfered with
-  uu = (uu * (parts[part].nodes[node] == -1) + 
-        uuwall * (parts[part].nodes[node] < -1)) * (1 - oob);
+  uu = (1-oobi) * (1-oobj) * (1-oobk) * (parts[part].nodes[node] == -1) * uu
+    + oobi * (1-oobj) * (1-oobk) * (parts[part].nodes[node] < -1) * uuwalli
+    + (1-oobi) * oobj * (1-oobk) * (parts[part].nodes[node] < -1) * uuwallj
+    + (1-oobi) * (1-oobj) * oobk * (parts[part].nodes[node] < -1) * uuwallk;
 
   /* interpolate v-velocity */
   //i = floor((x - _dom.xs) * ddx) + DOM_BUF;
@@ -433,15 +489,15 @@ __global__ void interpolate_nodes(real *p, real *u, real *v, real *w,
   k -= _dom.Gfy.ksb;
 
   // Find if out-of-bounds -- 1 if oob, 0 if in bounds
-  oob = i < _dom.Gfy._is || i > _dom.Gfy._ie ||
-        j < _dom.Gfy._js || j >= _dom.Gfy._je ||
-        k < _dom.Gfy._ks || k > _dom.Gfy._ke;
+  oobi = i < _dom.Gcc._is || i > _dom.Gcc._ie;
+  oobj = j < _dom.Gcc._js || j > _dom.Gcc._je;
+  oobk = k < _dom.Gcc._ks || k > _dom.Gcc._ke;
 
   // Correct indices so we don't have out-of-bounds reads
   // If out out bounds, we'll read good info but trash the results
   i += (_dom.Gfy._is - i) * (i < _dom.Gfy._is);
   j += (_dom.Gfy._js - j) * (j < _dom.Gfy._js);
-  k += (_dom.Gfy._ks - k) * (k < _dom.Gfy._is);
+  k += (_dom.Gfy._ks - k) * (k < _dom.Gfy._ks);
   i += (_dom.Gfy._ie - i) * (i > _dom.Gfy._ie);
   j += (_dom.Gfy._je - j) * (j >= _dom.Gfy._je);
   k += (_dom.Gfy._ke - k) * (k > _dom.Gfy._ke);
@@ -467,12 +523,12 @@ __global__ void interpolate_nodes(real *p, real *u, real *v, real *w,
   vv = v[C] + dvdx * (x - xx) + dvdy * (y - yy) + dvdz * (z - zz);
 
   // set vvwall equal to interfering wall v-velocity
-  vvwall = (parts[part].nodes[node] == WEST_WALL)*bc->vWD    // use #define's
-            + (parts[part].nodes[node] == EAST_WALL)*bc->vED
-            + (parts[part].nodes[node] == SOUTH_WALL)*bc->vSD
-            + (parts[part].nodes[node] == NORTH_WALL)*bc->vND
-            + (parts[part].nodes[node] == BOTTOM_WALL)*bc->vBD
-            + (parts[part].nodes[node] == TOP_WALL)*bc->vTD;
+  vvwalli = (parts[part].nodes[node] == WEST_WALL_D)*bc->vWD
+          + (parts[part].nodes[node] == EAST_WALL_D)*bc->vED;
+  vvwallj = (parts[part].nodes[node] == SOUTH_WALL_D)*bc->vSD
+          + (parts[part].nodes[node] == NORTH_WALL_D)*bc->vND;
+  vvwallk = (parts[part].nodes[node] == BOTTOM_WALL_D)*bc->vBD
+          + (parts[part].nodes[node] == TOP_WALL_D)*bc->vTD;
 
   // switch to particle rest frame
   real ocrossr_y = -(ox*zp - oz*xp);
@@ -481,11 +537,15 @@ __global__ void interpolate_nodes(real *p, real *u, real *v, real *w,
                 0.1 * inu * (rs5 - a5) * irs3 * odotcrossr_y;
 
   vv -= tmp_v;
-  vvwall -= tmp_v;
+  vvwalli -= tmp_v;
+  vvwallj -= tmp_v;
+  vvwallk -= tmp_v;
 
   // set actual node value based on whether it is interfered with
-  vv = (vv * (parts[part].nodes[node] == -1) +
-        vvwall * (parts[part].nodes[node] < -1)) * (1 - oob);
+  vv = (1-oobi) * (1-oobj) * (1-oobk) * (parts[part].nodes[node] == -1) * vv
+    + oobi * (1-oobj) * (1-oobk) * (parts[part].nodes[node] < -1) * vvwalli
+    + (1-oobi) * oobj * (1-oobk) * (parts[part].nodes[node] < -1) * vvwallj
+    + (1-oobi) * (1-oobj) * oobk * (parts[part].nodes[node] < -1) * vvwallk;
 
   /* interpolate w-velocity */
   arg_x = (x - (_dom.xs - _dom.dx)) * ddx + _dom.Gfz.isb;
@@ -517,15 +577,15 @@ __global__ void interpolate_nodes(real *p, real *u, real *v, real *w,
   //k = round((z - _dom.zs) * ddz) + DOM_BUF;
 
   // Find if out-of-bounds -- 1 if oob, 0 if in bounds
-  oob = i < _dom.Gfz._is || i > _dom.Gfz._ie ||
-        j < _dom.Gfz._js || j > _dom.Gfz._je ||
-        k < _dom.Gfz._ks || k >= _dom.Gfz._ke;
+  oobi = i < _dom.Gcc._is || i > _dom.Gcc._ie;
+  oobj = j < _dom.Gcc._js || j > _dom.Gcc._je;
+  oobk = k < _dom.Gcc._ks || k > _dom.Gcc._ke;
 
   // Correct indices so we don't have out-of-bounds reads
   // If out out bounds, we'll read good info but trash the results
   i += (_dom.Gfz._is - i) * (i < _dom.Gfz._is);
   j += (_dom.Gfz._js - j) * (j < _dom.Gfz._js);
-  k += (_dom.Gfz._ks - k) * (k < _dom.Gfz._is);
+  k += (_dom.Gfz._ks - k) * (k < _dom.Gfz._ks);
   i += (_dom.Gfz._ie - i) * (i > _dom.Gfz._ie);
   j += (_dom.Gfz._je - j) * (j > _dom.Gfz._je);
   k += (_dom.Gfz._ke - k) * (k >= _dom.Gfz._ke);
@@ -551,12 +611,12 @@ __global__ void interpolate_nodes(real *p, real *u, real *v, real *w,
   ww = w[C] + dwdx * (x - xx) + dwdy * (y - yy) + dwdz * (z - zz);
 
   // set uuwall equal to interfering wall u-velocity
-  wwwall = (parts[part].nodes[node] == WEST_WALL)*bc->wWD
-            + (parts[part].nodes[node] == EAST_WALL)*bc->wED
-            + (parts[part].nodes[node] == SOUTH_WALL)*bc->wSD
-            + (parts[part].nodes[node] == NORTH_WALL)*bc->wND
-            + (parts[part].nodes[node] == BOTTOM_WALL)*bc->wBD
-            + (parts[part].nodes[node] == TOP_WALL)*bc->wTD;
+  wwwalli = (parts[part].nodes[node] == WEST_WALL_D)*bc->wWD
+          + (parts[part].nodes[node] == EAST_WALL_D)*bc->wED;
+  wwwallj = (parts[part].nodes[node] == SOUTH_WALL_D)*bc->wSD
+          + (parts[part].nodes[node] == NORTH_WALL_D)*bc->wND;
+  wwwallk = (parts[part].nodes[node] == BOTTOM_WALL_D)*bc->wBD
+          + (parts[part].nodes[node] == TOP_WALL_D)*bc->wTD;
 
   // switch to particle rest frame
   real ocrossr_z = ox*yp - oy*xp;
@@ -564,11 +624,15 @@ __global__ void interpolate_nodes(real *p, real *u, real *v, real *w,
   real tmp_w = parts[part].w + ocrossr_z + 
                  0.1 * inu * (rs5 - a5) * irs3 * odotcrossr_z;
   ww -= tmp_w;
-  wwwall -= tmp_w;
+  wwwalli -= tmp_w;
+  wwwallj -= tmp_w;
+  wwwallk -= tmp_w;
 
   // set actual node value based on whether it is interfered with
-  ww = (ww * (parts[part].nodes[node] == -1) + 
-        wwwall * (parts[part].nodes[node] < -1)) * (1 - oob);
+  ww = (1-oobi) * (1-oobj) * (1-oobk) * (parts[part].nodes[node] == -1) * ww
+    + oobi * (1-oobj) * (1-oobk) * (parts[part].nodes[node] < -1) * wwwalli
+    + (1-oobi) * oobj * (1-oobk) * (parts[part].nodes[node] < -1) * wwwallj
+    + (1-oobi) * (1-oobj) * oobk * (parts[part].nodes[node] < -1) * wwwallk;
 
   // convert (uu, vv, ww) to (u_r, u_theta, u_phi) and write to node arrays
   cart2sphere(uu, vv, ww, _node_t[node], _node_p[node],
@@ -741,7 +805,8 @@ __global__ void compute_lambs_coeffs(part_struct *parts, real relax,
 }
 
 __global__ void calc_forces(part_struct *parts, int nparts,
-  real gradPx, real gradPy, real gradPz, real rho_f, real mu, real nu)
+  real gradPx, real gradPy, real gradPz, real rho_f, real mu, real nu,
+  real s_beta, real s_ref, g_struct g)
 {
   int pp = threadIdx.x + blockIdx.x*blockDim.x; // particle number
 
@@ -752,13 +817,17 @@ __global__ void calc_forces(part_struct *parts, int nparts,
     real N10 = sqrt(3./4./PI);
     real N11 = sqrt(3./8./PI);
 
-    parts[pp].Fx = rho_f * vol * (parts[pp].udot + gradPx * irho_f)
+    real bousiq_x = -s_beta*(parts[pp].s - s_ref)*g.x;
+    real bousiq_y = -s_beta*(parts[pp].s - s_ref)*g.y;
+    real bousiq_z = -s_beta*(parts[pp].s - s_ref)*g.z;
+
+    parts[pp].Fx = rho_f * vol * (parts[pp].udot + gradPx * irho_f - bousiq_x)
       - PI * mu * nu * 2.*N11 * (parts[pp].pnm_re[2]
       + 6.*parts[pp].phinm_re[2]);
-    parts[pp].Fy = rho_f * vol * (parts[pp].vdot + gradPy * irho_f)
+    parts[pp].Fy = rho_f * vol * (parts[pp].vdot + gradPy * irho_f - bousiq_y)
       + PI * mu * nu * 2.*N11 * (parts[pp].pnm_im[2]
       + 6.*parts[pp].phinm_im[2]);
-    parts[pp].Fz = rho_f * vol * (parts[pp].wdot + gradPz * irho_f)
+    parts[pp].Fz = rho_f * vol * (parts[pp].wdot + gradPz * irho_f - bousiq_z)
       + PI * mu * nu * N10 * (parts[pp].pnm_re[1]
       + 6.*parts[pp].phinm_re[1]);
 
@@ -1488,7 +1557,7 @@ __global__ void unpack_sums_b(real *sum_recv_b, int *offset, int *bin_start,
 }
 
 __global__ void compute_error(real lamb_cut, int ncoeffs_max, int nparts,
-  part_struct *parts, real *part_errors)
+  part_struct *parts, real *part_errors, int *part_nums)
 {
   int part = blockIdx.x;
   int coeff = threadIdx.x;
@@ -1531,9 +1600,9 @@ __global__ void compute_error(real lamb_cut, int ncoeffs_max, int nparts,
       // (also, if zeroth order is 0, ignore)
       real curr_val = s_coeffs[c];
       real zeroth_val = s_coeffs[0 + ncoeffs_max * i];
-      int flag = (curr_val*curr_val > lamb_cut*lamb_cut * zeroth_val*zeroth_val) *
-                  (curr_val*curr_val > 1.e-32) *
-                  (zeroth_val*zeroth_val > DBL_MIN*DBL_MIN);
+      int flag = (fabs(curr_val) > fabs(lamb_cut*zeroth_val)) *
+                  (fabs(curr_val) > 1.e-16) *
+                  (fabs(zeroth_val) > DBL_MIN);
 
       // If flag == 1, set scoeff equal to error value
       // If flag == 0, set scoeff equal to zero (no error)
@@ -1555,9 +1624,10 @@ __global__ void compute_error(real lamb_cut, int ncoeffs_max, int nparts,
     //  order has a maximum, and we need to find the max over these
     if (coeff == 0) {
       for (int i = 0; i < ncoeffs_max; i++) {
-        max += (s_max[i] - max) * (s_max[i] > max);  
+        max += (s_max[i] - max) * (s_max[i] > max);
       }
       part_errors[part] = max;
+      part_nums[part] = parts[part].N;
     }
   }
 }

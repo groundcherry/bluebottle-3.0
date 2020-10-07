@@ -1,226 +1,263 @@
-/*******************************************************************************
- ********************************* BLUEBOTTLE **********************************
- *******************************************************************************
- *
- *  Copyright 2012 - 2018 Adam Sierakowski and Daniel Willen, 
- *                         The Johns Hopkins University
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- *
- *  Please contact the Johns Hopkins University to use Bluebottle for
- *  commercial and/or for-profit applications.
- ******************************************************************************/
 #include <cuda.h>
 #include <thrust/sort.h>
 
-#include "cuda_physalis.h"
 #include "cuda_particle.h"
+#include "scalar.h"
+#include "cuda_scalar.h"
 
 #include <helper_cuda.h>
-#include <thrust/scan.h>
-#include <thrust/device_ptr.h>
+//#include <thrust/scan.h>
+//#include <thrust/device_ptr.h>
 
-__constant__ real _A1;
-__constant__ real _A2;
-__constant__ real _A3;
-__constant__ real _B;
-__constant__ int _nn[NCOEFFS];
-__constant__ int _mm[NCOEFFS];
-__constant__ real _node_t[NNODES];
-__constant__ real _node_p[NNODES];
-real *_int_Yp_re;
-real *_int_Yp_im;
-real *_int_rDYu_re;
-real *_int_rDYu_im;
-real *_int_xXDYu_re;
-real *_int_xXDYu_im;
-real *_sum_send_e;
-real *_sum_send_w;
-real *_sum_send_n;
-real *_sum_send_s;
-real *_sum_send_t;
-real *_sum_send_b;
-real *_sum_recv_e;
-real *_sum_recv_w;
-real *_sum_recv_n;
-real *_sum_recv_s;
-real *_sum_recv_t;
-real *_sum_recv_b;
+__constant__ int _s_mm[64];
+__constant__ int _s_nn[64];
+real *_int_Ys_re;
+real *_int_Ys_im;
 
 extern "C"
-void cuda_init_physalis(void)
+void cuda_scalar_malloc_host(void)
 {
-  if (NPARTS > 0) {
-    /* set up coefficient table */
-    int nn[NCOEFFS] = {0,
-                       1, 1,
-                       2, 2, 2,
-                       3, 3, 3, 3,
-                       4, 4, 4, 4, 4};
-    int mm[NCOEFFS] = {0,
-                       0, 1,
-                       0, 1, 2,
-                       0, 1, 2, 3,
-                       0, 1, 2, 3, 4};
+  checkCudaErrors(cudaMallocHost(&s, dom[rank].Gcc.s3b * sizeof(real)));
+    cpumem += dom[rank].Gcc.s3b * sizeof(real);
+  checkCudaErrors(cudaMallocHost(&s0, dom[rank].Gcc.s3b * sizeof(real)));
+    cpumem += dom[rank].Gcc.s3b * sizeof(real);
+  checkCudaErrors(cudaMallocHost(&s_conv, dom[rank].Gcc.s3b * sizeof(real)));
+    cpumem += dom[rank].Gcc.s3b * sizeof(real);
+  checkCudaErrors(cudaMallocHost(&s_conv0, dom[rank].Gcc.s3b * sizeof(real)));
+    cpumem += dom[rank].Gcc.s3b * sizeof(real);
+  checkCudaErrors(cudaMallocHost(&s_diff, dom[rank].Gcc.s3b * sizeof(real)));
+    cpumem += dom[rank].Gcc.s3b * sizeof(real);
+  checkCudaErrors(cudaMallocHost(&s_diff0, dom[rank].Gcc.s3b * sizeof(real)));
+    cpumem += dom[rank].Gcc.s3b * sizeof(real);
+}
 
-    /* set up quadrature nodes for 7th-order Lebedev quadrature */
-    // NOTE: Higher order quadratures exist as comments in bluebottle, in
-    // cuda_quadrature.cu:cuda_Lamb()
-    real PI14 = 0.25 * PI;
-    real PI12 = 0.5 * PI;
-    real PI34 = 0.75 * PI;
-    real PI54 = 1.25 * PI;
-    real PI32 = 1.5 * PI;
-    real PI74 = 1.75 * PI;
-    real alph1 = 0.955316618124509;
-    real alph2 = 2.186276035465284;
+extern "C"
+void cuda_scalar_malloc_dev(void)
+{
+  checkCudaErrors(cudaMalloc(&_bc_s, sizeof(BC_s)));
+    gpumem += sizeof(BC_s);
+  checkCudaErrors(cudaMemcpy(_bc_s, &bc_s, sizeof(BC_s), 
+    cudaMemcpyHostToDevice));
 
-    /* weights */
-    real A1 = 0.598398600683775;
-    real A2 = 0.478718880547015;
-    real A3 = 0.403919055461543;
-    real B = 0.;
+  checkCudaErrors(cudaMalloc(&_s, dom[rank].Gcc.s3b * sizeof(real)));
+    gpumem += dom[rank].Gcc.s3b * sizeof(real);
+  checkCudaErrors(cudaMalloc(&_s0, dom[rank].Gcc.s3b * sizeof(real)));
+    gpumem += dom[rank].Gcc.s3b * sizeof(real);
+  checkCudaErrors(cudaMalloc(&_s_conv, dom[rank].Gcc.s3b * sizeof(real)));
+    gpumem += dom[rank].Gcc.s3b * sizeof(real);
+  checkCudaErrors(cudaMalloc(&_s_conv0, dom[rank].Gcc.s3b * sizeof(real)));
+    gpumem += dom[rank].Gcc.s3b * sizeof(real);
+  checkCudaErrors(cudaMalloc(&_s_diff, dom[rank].Gcc.s3b * sizeof(real)));
+    gpumem += dom[rank].Gcc.s3b * sizeof(real);
+  checkCudaErrors(cudaMalloc(&_s_diff0, dom[rank].Gcc.s3b * sizeof(real)));
+    gpumem += dom[rank].Gcc.s3b * sizeof(real);
 
-    /* nodes */
-    // Find a more elegant way of fixing the divide by sin(0)
-    real a1_t[6] = {PI12, PI12, PI12, PI12, 0.+DIV_ST, PI-DIV_ST};
-    real a1_p[6] = {0., PI12, PI, PI32, 0., 0.};
-    real a2_t[12] = {PI12, PI12, PI12, PI12,
-                     PI14, PI14, PI14, PI14,
-                     PI34, PI34, PI34, PI34};
-    real a2_p[12] = {PI14, PI34, PI54, PI74,
-                     0., PI12, PI, PI32,
-                     0., PI12, PI, PI32};
-    real a3_t[8] = {alph1, alph1, alph1, alph1,
-                    alph2, alph2, alph2, alph2};
-    real a3_p[8] = {PI14, PI34, PI54, PI74,
-                    PI14, PI34, PI54, PI74};
+  checkCudaErrors(cudaMemset(_s, 0., dom[rank].Gcc.s3b * sizeof(real)));
+  checkCudaErrors(cudaMemset(_s0, 0., dom[rank].Gcc.s3b * sizeof(real)));
+  checkCudaErrors(cudaMemset(_s_conv, 0., dom[rank].Gcc.s3b * sizeof(real)));
+  checkCudaErrors(cudaMemset(_s_conv0, 0., dom[rank].Gcc.s3b * sizeof(real)));
+  checkCudaErrors(cudaMemset(_s_diff, 0., dom[rank].Gcc.s3b * sizeof(real)));
+  checkCudaErrors(cudaMemset(_s_diff0, 0., dom[rank].Gcc.s3b * sizeof(real)));
+}
 
-    /* put all quadrature nodes together for interpolation */
-    real node_t[NNODES];
-    real node_p[NNODES];
-    for (int i = 0; i < 6; i++) {
-      node_t[i] = a1_t[i];
-      node_p[i] = a1_p[i];
+extern "C"
+void cuda_scalar_push(void)
+{
+  checkCudaErrors(cudaMemcpy(_s, s, dom[rank].Gcc.s3b * sizeof(real),
+    cudaMemcpyHostToDevice));
+  checkCudaErrors(cudaMemcpy(_s0, s0, dom[rank].Gcc.s3b * sizeof(real),
+    cudaMemcpyHostToDevice));
+  checkCudaErrors(cudaMemcpy(_s_conv, s_conv, dom[rank].Gcc.s3b * sizeof(real),
+    cudaMemcpyHostToDevice));
+  checkCudaErrors(cudaMemcpy(_s_conv0, s_conv0, dom[rank].Gcc.s3b * sizeof(real),
+    cudaMemcpyHostToDevice));
+  checkCudaErrors(cudaMemcpy(_s_diff, s_diff, dom[rank].Gcc.s3b * sizeof(real),
+    cudaMemcpyHostToDevice));
+  checkCudaErrors(cudaMemcpy(_s_diff0, s_diff0, dom[rank].Gcc.s3b * sizeof(real),
+    cudaMemcpyHostToDevice));
+
+  int s_nn[64] = {0,
+                1, 1, 1,
+                2, 2, 2, 2, 2,
+                3, 3, 3, 3, 3, 3, 3,
+                4, 4, 4, 4, 4, 4, 4, 4, 4,
+                5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+                6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7};
+
+  int s_mm[64] = {0,
+                -1, 0, 1,
+                -2, -1, 0, 1, 2,
+                -3, -2, -1, 0, 1, 2, 3,
+                -4, -3, -2, -1, 0, 1, 2, 3, 4,
+                -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5,
+                -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6,
+                -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7};
+
+  checkCudaErrors(cudaMemcpyToSymbol(_s_mm, s_mm, 64 * sizeof(int)));
+  checkCudaErrors(cudaMemcpyToSymbol(_s_nn, s_nn, 64 * sizeof(int)));
+}
+
+extern "C"
+void cuda_scalar_pull(void)
+{
+  checkCudaErrors(cudaMemcpy(s, _s, dom[rank].Gcc.s3b * sizeof(real),
+    cudaMemcpyDeviceToHost));
+}
+
+extern "C"
+void cuda_scalar_pull_debug(void)
+{
+  checkCudaErrors(cudaMemcpy(s_conv, _s_conv, dom[rank].Gcc.s3b * sizeof(real),
+    cudaMemcpyDeviceToHost));
+  checkCudaErrors(cudaMemcpy(s_diff, _s_diff, dom[rank].Gcc.s3b * sizeof(real),
+    cudaMemcpyDeviceToHost));
+}
+
+extern "C"
+void cuda_scalar_pull_restart(void)
+{
+  checkCudaErrors(cudaMemcpy(s0, _s0, dom[rank].Gcc.s3b * sizeof(real),
+    cudaMemcpyDeviceToHost));
+  checkCudaErrors(cudaMemcpy(s_conv0, _s_conv0, dom[rank].Gcc.s3b * sizeof(real),
+    cudaMemcpyDeviceToHost));
+  checkCudaErrors(cudaMemcpy(s_diff0, _s_diff0, dom[rank].Gcc.s3b * sizeof(real),
+    cudaMemcpyDeviceToHost));
+}
+
+extern "C"
+void cuda_scalar_free(void)
+{
+    checkCudaErrors(cudaFreeHost(s));
+    checkCudaErrors(cudaFreeHost(s0));
+    checkCudaErrors(cudaFreeHost(s_conv));
+    checkCudaErrors(cudaFreeHost(s_conv0));
+    checkCudaErrors(cudaFreeHost(s_diff));
+    checkCudaErrors(cudaFreeHost(s_diff0));
+
+    checkCudaErrors(cudaFree(_bc_s));
+
+    checkCudaErrors(cudaFree(_s));
+    checkCudaErrors(cudaFree(_s0));
+    checkCudaErrors(cudaFree(_s_conv));
+    checkCudaErrors(cudaFree(_s_conv0));
+    checkCudaErrors(cudaFree(_s_diff));
+    checkCudaErrors(cudaFree(_s_diff0));
+}
+
+extern "C"
+void cuda_compute_boussinesq(void)
+{
+  forcing_boussinesq_x<<<blocks.Gfx.num_inb, blocks.Gfx.dim_inb>>>(s_beta, g.x, s_ref, _s, _f_x);
+  forcing_boussinesq_y<<<blocks.Gfy.num_jnb, blocks.Gfy.dim_jnb>>>(s_beta, g.y, s_ref, _s, _f_y);
+  forcing_boussinesq_z<<<blocks.Gfz.num_knb, blocks.Gfz.dim_knb>>>(s_beta, g.z, s_ref, _s, _f_z);
+}
+
+extern "C"
+void cuda_scalar_BC(real *array)
+{
+  // Check whether each subdom boundary is an external boundary, then
+  // apply the correct boundary conditions to all fields on that face
+
+  // Only apply boundary conditions on the inner [*n x *n] plane, not the
+  //  [*nb x *nb] -- this ensures we don't set the points that don't contain
+  //  any solution, and we also don't set points twice
+
+  /* WEST */
+  if (dom[rank].w == MPI_PROC_NULL) {
+    switch (bc_s.sW) {
+      case DIRICHLET:
+        BC_s_W_D<<<blocks.Gcc.num_in, blocks.Gcc.dim_in>>>(array, bc_s.sWD);
+        break;
+      case NEUMANN:
+        BC_s_W_N<<<blocks.Gcc.num_in, blocks.Gcc.dim_in>>>(array, bc_s.sWN);
+        break;
     }
-    for (int i = 0; i < 12; i++) {
-      node_t[6+i] = a2_t[i];
-      node_p[6+i] = a2_p[i];
-    }
-    for (int i = 0; i < 8; i++) {
-      node_t[18+i] = a3_t[i];
-      node_p[18+i] = a3_p[i];
-    }
+  }
 
-    /* Bind to cuda device constant memory */
-    checkCudaErrors(cudaMemcpyToSymbol(_nn, &nn, NCOEFFS * sizeof(int)));
-    checkCudaErrors(cudaMemcpyToSymbol(_mm, &mm, NCOEFFS * sizeof(int)));
-    checkCudaErrors(cudaMemcpyToSymbol(_A1, &A1, sizeof(real)));
-    checkCudaErrors(cudaMemcpyToSymbol(_A2, &A2, sizeof(real)));
-    checkCudaErrors(cudaMemcpyToSymbol(_A3, &A3, sizeof(real)));
-    checkCudaErrors(cudaMemcpyToSymbol(_B, &B, sizeof(real)));
-    checkCudaErrors(cudaMemcpyToSymbol(_node_t, &node_t, NNODES * sizeof(real)));
-    checkCudaErrors(cudaMemcpyToSymbol(_node_p, &node_p, NNODES * sizeof(real)));
+  /* EAST */
+  if (dom[rank].e == MPI_PROC_NULL) {
+    switch (bc_s.sE) {
+      case DIRICHLET:
+        BC_s_E_D<<<blocks.Gcc.num_in, blocks.Gcc.dim_in>>>(array, bc_s.sED);
+        break;
+      case NEUMANN:
+        BC_s_E_N<<<blocks.Gcc.num_in, blocks.Gcc.dim_in>>>(array, bc_s.sEN);
+        break;
+    }
+  }
+
+  /* SOUTH */
+  if (dom[rank].s == MPI_PROC_NULL) {
+    switch (bc_s.sS) {
+      case DIRICHLET:
+        BC_s_S_D<<<blocks.Gcc.num_jn, blocks.Gcc.dim_jn>>>(array, bc_s.sSD);
+        break;
+      case NEUMANN:
+        BC_s_S_N<<<blocks.Gcc.num_jn, blocks.Gcc.dim_jn>>>(array, bc_s.sSN);
+        break;
+    }
+  }
+
+  /* NORTH */
+  if (dom[rank].n == MPI_PROC_NULL) {
+    switch (bc_s.sN) {
+      case DIRICHLET:
+        BC_s_N_D<<<blocks.Gcc.num_jn, blocks.Gcc.dim_jn>>>(array, bc_s.sND);
+        break;
+      case NEUMANN:
+        BC_s_N_N<<<blocks.Gcc.num_jn, blocks.Gcc.dim_jn>>>(array, bc_s.sNN);
+        break;
+    }
+  }
+
+  /* BOTTOM */
+  if (dom[rank].b == MPI_PROC_NULL) {
+    switch (bc_s.sB) {
+      case DIRICHLET:
+        BC_s_B_D<<<blocks.Gcc.num_kn, blocks.Gcc.dim_kn>>>(array, bc_s.sBD);
+        break;
+      case NEUMANN:
+        BC_s_B_N<<<blocks.Gcc.num_kn, blocks.Gcc.dim_kn>>>(array, bc_s.sBN);
+        break;
+    }
+  }
+
+  /* TOP */
+  if (dom[rank].t == MPI_PROC_NULL) {
+    switch (bc_s.sT) {
+      case DIRICHLET:
+        BC_s_T_D<<<blocks.Gcc.num_kn, blocks.Gcc.dim_kn>>>(array, bc_s.sTD);
+        break;
+      case NEUMANN:
+        BC_s_T_N<<<blocks.Gcc.num_kn, blocks.Gcc.dim_kn>>>(array, bc_s.sTN);
+        break;
+    }
   }
 }
 
 extern "C"
-void cuda_lamb(void)
+void cuda_scalar_part_BC(real *array)
 {
-  /* CUDA exec config */
-  dim3 num_parts(nparts); // nparts blocks with nnodes threads each
-  dim3 dim_nodes(NNODES);
-  dim3 num_partcoeff(nparts, ncoeffs_max);
-  dim3 dim_coeff(ncoeffs_max);
-
-  //printf("N%d >> Determining Lamb's coefficients (nparts = %d)\n", rank, nparts);
-  if (nparts > 0) {
-    /* Temp storage for field variables at quadrature nodes */
-    real *_pp;    // pressure
-    real *_ur;    // radial velocity
-    real *_ut;    // theta velocity
-    real *_up;    // phi velocity
-
-    checkCudaErrors(cudaMalloc(&_pp, NNODES * nparts * sizeof(real)));
-    checkCudaErrors(cudaMalloc(&_ur, NNODES * nparts * sizeof(real)));
-    checkCudaErrors(cudaMalloc(&_ut, NNODES * nparts * sizeof(real)));
-    checkCudaErrors(cudaMalloc(&_up, NNODES * nparts * sizeof(real)));
-
-    /* Interpolate field varaibles to quadrature nodes */
-    check_nodes<<<num_parts, dim_nodes>>>(nparts, _parts, _bc, _DOM);
-    interpolate_nodes<<<num_parts, dim_nodes>>>(_p, _u, _v, _w, rho_f, nu,
-      gradP, _parts, _pp, _ur, _ut, _up, _bc,
-      s_beta, s_ref, g);
-
-    /* Create scalar product storage using max particle coefficient size */
-    int sp_size = nparts * NNODES * ncoeffs_max;
-    checkCudaErrors(cudaMalloc(&_int_Yp_re, sp_size * sizeof(real)));
-    checkCudaErrors(cudaMalloc(&_int_Yp_im, sp_size * sizeof(real)));
-    checkCudaErrors(cudaMalloc(&_int_rDYu_re, sp_size * sizeof(real)));
-    checkCudaErrors(cudaMalloc(&_int_rDYu_im, sp_size * sizeof(real)));
-    checkCudaErrors(cudaMalloc(&_int_xXDYu_re, sp_size * sizeof(real)));
-    checkCudaErrors(cudaMalloc(&_int_xXDYu_im, sp_size * sizeof(real)));
-
-    /* Perform partial sums of lebedev quadrature */
-    lebedev_quadrature<<<num_partcoeff, dim_nodes>>>(_parts, ncoeffs_max,
-      _pp, _ur, _ut, _up,
-      _int_Yp_re, _int_Yp_im,
-      _int_rDYu_re, _int_rDYu_im,
-      _int_xXDYu_re, _int_xXDYu_im);
-
-    checkCudaErrors(cudaFree(_pp));
-    checkCudaErrors(cudaFree(_ur));
-    checkCudaErrors(cudaFree(_ut));
-    checkCudaErrors(cudaFree(_up));
-  }
-
-  /* Accumulate partial sums (all procs need to be involved) */
-  cuda_partial_sum_i();  // 2a) Calculate partial sums over x face
-  cuda_partial_sum_j();  // 2b) Calculate partial sums over y face
-  cuda_partial_sum_k();  // 2c) Calculate partial sums over z face
-
-  if (nparts > 0) {
-    /* Compute lambs coefficients from partial sums */
-    compute_lambs_coeffs<<<num_parts, dim_coeff>>>(_parts, lamb_relax, mu, nu,
-      ncoeffs_max, nparts,
-      _int_Yp_re, _int_Yp_im,
-      _int_rDYu_re, _int_rDYu_im,
-      _int_xXDYu_re, _int_xXDYu_im);
-
-    /* Calculate hydrodynamic forces */
-    // Thread over nparts
-    int t_nparts = nparts * (nparts < MAX_THREADS_1D)
-                  + MAX_THREADS_1D * (nparts >= MAX_THREADS_1D);
-    int b_nparts = (int) ceil((real) nparts / (real) t_nparts);
-
-    dim3 dim_nparts(t_nparts);
-    dim3 num_nparts(b_nparts);
-
-    calc_forces<<<num_nparts, dim_nparts>>>(_parts, nparts, gradP.x, gradP.y,
-      gradP.z, rho_f, mu, nu, s_beta, s_ref, g);
-
-    /* Free */
-    checkCudaErrors(cudaFree(_int_Yp_re));
-    checkCudaErrors(cudaFree(_int_Yp_im));
-    checkCudaErrors(cudaFree(_int_rDYu_re));
-    checkCudaErrors(cudaFree(_int_rDYu_im));
-    checkCudaErrors(cudaFree(_int_xXDYu_re));
-    checkCudaErrors(cudaFree(_int_xXDYu_im));
-  }
+  scalar_part_BC<<<blocks.Gcc.num_kn, blocks.Gcc.dim_kn>>>(array,
+    _phase, _phase_shell, _parts);
 }
 
 extern "C"
-void cuda_partial_sum_i(void)
+void cuda_scalar_part_fill(void)
+{
+  scalar_part_fill<<<blocks.Gcc.num_kn, blocks.Gcc.dim_kn>>>(_s, _phase, _parts);
+}
+
+extern "C"
+void cuda_scalar_solve(void)
+{
+  scalar_solve<<<blocks.Gcc.num_knb_s, blocks.Gcc.dim_knb_s>>>(_phase, _s0, _s,
+    _s_conv, _s_diff, _s_conv0, _s_diff0, _u0, _v0, _w0, s_D, dt, dt0);
+}
+
+extern "C"
+void cuda_scalar_partial_sum_i(void)
 {
   //printf("N%d >> Communicating partial sums in i (nparts %d)\n", rank, nparts);
   /* Outline of communication of partial sums for Lebedev integration
@@ -372,14 +409,12 @@ void cuda_partial_sum_i(void)
   //mpi_send_nparts_i();
 
   /* Allocate memory for send and recv partial sums */
-  int npsums = NSP * ncoeffs_max;  // 6 scalar products * ncoeffs
+  int npsums = SNSP * s_ncoeffs_max;  // 2 scalar products * ncoeffs
   // Indexing is, for example:
   //  _sum_send_e[coeff + ncoeffs_max*sp + ncoeffs_max*nsp*part_id]
   // where
-  //  part_id = [0, nparts) and sp = [0, 6)
-  //    0:  Yp_re     1:  Yp_im
-  //    2:  rDYu_re   3:  rDYu_im
-  //    4:  xXDYu_re  5:  xXDYu_im
+  //  part_id = [0, nparts) and sp = [0, 2)
+  //    0:  Ys_re     1:  Ys_im
 
   // See accompanying note at the same location in cuda_transfer_parts_i
   int send_alloc_e = nparts_send[EAST]*(nparts_send[EAST] > 0) + (nparts_send[EAST] == 0);
@@ -394,44 +429,36 @@ void cuda_partial_sum_i(void)
 
   /* Pack partial sums */
   if (nparts_send[EAST] > 0) {
-    pack_sums_e<<<bin_num_inb, bin_dim_inb>>>(_sum_send_e, _offset_e,
-      _bin_start, _bin_count, _part_ind, ncoeffs_max,
-      _int_Yp_re, _int_Yp_im,
-      _int_rDYu_re, _int_rDYu_im,
-      _int_xXDYu_re, _int_xXDYu_im);
+    pack_s_sums_e<<<bin_num_inb, bin_dim_inb>>>(_sum_send_e, _offset_e,
+      _bin_start, _bin_count, _part_ind, s_ncoeffs_max,
+      _int_Ys_re, _int_Ys_im);
   } else {
     //cudaMemset(_sum_send_e, 0., send_alloc_e * npsums * sizeof(real));
   }
 
   if (nparts_send[WEST] > 0) {
-    pack_sums_w<<<bin_num_inb, bin_dim_inb>>>(_sum_send_w, _offset_w,
-      _bin_start, _bin_count, _part_ind, ncoeffs_max,
-      _int_Yp_re, _int_Yp_im,
-      _int_rDYu_re, _int_rDYu_im,
-      _int_xXDYu_re, _int_xXDYu_im);
+    pack_s_sums_w<<<bin_num_inb, bin_dim_inb>>>(_sum_send_w, _offset_w,
+      _bin_start, _bin_count, _part_ind, s_ncoeffs_max,
+      _int_Ys_re, _int_Ys_im);
   } else {
     //cudaMemset(_sum_send_w, 0., send_alloc_w * npsums * sizeof(real));
   }
   cudaDeviceSynchronize();  // ensure packing is complete
 
   /* Communicate partial sums with MPI */
-  mpi_send_psums_i();
+  mpi_send_s_psums_i();
 
   // Offsets are the same since they're over both ghost bins and edge bins
   /* Unpack and complete partial sums */
   if (nparts_recv[EAST] > 0) {
-    unpack_sums_e<<<bin_num_inb, bin_dim_inb>>>(_sum_recv_e, _offset_e,
-      _bin_start, _bin_count, _part_ind, ncoeffs_max,
-      _int_Yp_re, _int_Yp_im,
-      _int_rDYu_re, _int_rDYu_im,
-      _int_xXDYu_re, _int_xXDYu_im);
+    unpack_s_sums_e<<<bin_num_inb, bin_dim_inb>>>(_sum_recv_e, _offset_e,
+      _bin_start, _bin_count, _part_ind, s_ncoeffs_max,
+      _int_Ys_re, _int_Ys_im);
   }
   if (nparts_recv[WEST] > 0) {
-    unpack_sums_w<<<bin_num_inb, bin_dim_inb>>>(_sum_recv_w, _offset_w,
-      _bin_start, _bin_count, _part_ind, ncoeffs_max,
-      _int_Yp_re, _int_Yp_im,
-      _int_rDYu_re, _int_rDYu_im,
-      _int_xXDYu_re, _int_xXDYu_im);
+    unpack_s_sums_w<<<bin_num_inb, bin_dim_inb>>>(_sum_recv_w, _offset_w,
+      _bin_start, _bin_count, _part_ind, s_ncoeffs_max,
+      _int_Ys_re, _int_Ys_im);
   }
   cudaDeviceSynchronize();  // ensure packing is complete
 
@@ -447,7 +474,7 @@ void cuda_partial_sum_i(void)
 }
 
 extern "C"
-void cuda_partial_sum_j(void)
+void cuda_scalar_partial_sum_j(void)
 {
   //printf("N%d >> Communicating partial sums in j\n", rank);
   /* Initialize execution config */
@@ -577,14 +604,12 @@ void cuda_partial_sum_j(void)
   //mpi_send_nparts_j();
 
   /* Allocate memory for send and recv partial sums */
-  int npsums = NSP * ncoeffs_max;  // 6 scalar products * ncoeffs
+  int npsums = SNSP * s_ncoeffs_max;  // 2 scalar products * ncoeffs
   // Indexing is, for example:
   //  _sum_send_n[coeff + ncoeffs_max*sp + ncoeffs_max*nsp*part_id]
   // where
-  //  part_id = [0, nparts) and sp = [0, 6)
-  //    0:  Yp_re     1:  Yp_im
-  //    2:  rDYu_re   3:  rDYu_im
-  //    4:  xXDYu_re  5:  xXDYu_im
+  //  part_id = [0, nparts) and sp = [0, 2)
+  //    0:  Ys_re     1:  Ys_im
 
   // See accompanying note at the same location in cuda_transfer_parts_i
   int send_alloc_n = nparts_send[NORTH]*(nparts_send[NORTH] > 0) + (nparts_send[NORTH] == 0);
@@ -599,44 +624,36 @@ void cuda_partial_sum_j(void)
 
   /* Pack partial sums */
   if (nparts_send[NORTH] > 0) {
-    pack_sums_n<<<bin_num_jnb, bin_dim_jnb>>>(_sum_send_n, _offset_n,
-      _bin_start, _bin_count, _part_ind, ncoeffs_max,
-      _int_Yp_re, _int_Yp_im,
-      _int_rDYu_re, _int_rDYu_im,
-      _int_xXDYu_re, _int_xXDYu_im);
+    pack_s_sums_n<<<bin_num_jnb, bin_dim_jnb>>>(_sum_send_n, _offset_n,
+      _bin_start, _bin_count, _part_ind, s_ncoeffs_max,
+      _int_Ys_re, _int_Ys_im);
   } else {
     //cudaMemset(_sum_send_n, 0., send_alloc_n * npsums * sizeof(real));
   }
 
   if (nparts_send[SOUTH] > 0) {
-    pack_sums_s<<<bin_num_jnb, bin_dim_jnb>>>(_sum_send_s, _offset_s,
-      _bin_start, _bin_count, _part_ind, ncoeffs_max,
-      _int_Yp_re, _int_Yp_im,
-      _int_rDYu_re, _int_rDYu_im,
-      _int_xXDYu_re, _int_xXDYu_im);
+    pack_s_sums_s<<<bin_num_jnb, bin_dim_jnb>>>(_sum_send_s, _offset_s,
+      _bin_start, _bin_count, _part_ind, s_ncoeffs_max,
+      _int_Ys_re, _int_Ys_im);
   } else {
     //cudaMemset(_sum_send_s, 0., send_alloc_s * npsums * sizeof(real));
   }
   cudaDeviceSynchronize();  // ensure packing is complete
 
   /* Communicate partial sums with MPI */
-  mpi_send_psums_j();
+  mpi_send_s_psums_j();
 
   // Offsets are the same since they're over both ghost bins and edge bins
   /* Unpack and complete partial sums */
   if (nparts_recv[NORTH] > 0) {
-    unpack_sums_n<<<bin_num_jnb, bin_dim_jnb>>>(_sum_recv_n, _offset_n,
-      _bin_start, _bin_count, _part_ind, ncoeffs_max,
-      _int_Yp_re, _int_Yp_im,
-      _int_rDYu_re, _int_rDYu_im,
-      _int_xXDYu_re, _int_xXDYu_im);
+    unpack_s_sums_n<<<bin_num_jnb, bin_dim_jnb>>>(_sum_recv_n, _offset_n,
+      _bin_start, _bin_count, _part_ind, s_ncoeffs_max,
+      _int_Ys_re, _int_Ys_im);
   }
   if (nparts_recv[SOUTH] > 0) {
-    unpack_sums_s<<<bin_num_jnb, bin_dim_jnb>>>(_sum_recv_s, _offset_s,
-      _bin_start, _bin_count, _part_ind, ncoeffs_max,
-      _int_Yp_re, _int_Yp_im,
-      _int_rDYu_re, _int_rDYu_im,
-      _int_xXDYu_re, _int_xXDYu_im);
+    unpack_s_sums_s<<<bin_num_jnb, bin_dim_jnb>>>(_sum_recv_s, _offset_s,
+      _bin_start, _bin_count, _part_ind, s_ncoeffs_max,
+      _int_Ys_re, _int_Ys_im);
   }
   cudaDeviceSynchronize();  // ensure packing is complete
 
@@ -652,7 +669,7 @@ void cuda_partial_sum_j(void)
 }
 
 extern "C"
-void cuda_partial_sum_k(void)
+void cuda_scalar_partial_sum_k(void)
 {
   //printf("N%d >> Communicating partial sums in k\n", rank);
   /* Initialize execution config */
@@ -782,14 +799,12 @@ void cuda_partial_sum_k(void)
   //mpi_send_nparts_k();
 
   /* Allocate memory for send and recv partial sums */
-  int npsums = NSP * ncoeffs_max;  // 6 scalar products * ncoeffs
+  int npsums = SNSP * s_ncoeffs_max;  // 2 scalar products * ncoeffs
   // Indexing is, for example:
   //  _sum_send_t[coeff + ncoeffs_max*sp + ncoeffs_max*nsp*part_id]
   // where
-  //  part_id = [0, nparts) and sp = [0, 6)
-  //    0:  Yp_re     1:  Yp_im
-  //    2:  rDYu_re   3:  rDYu_im
-  //    4:  xXDYu_re  5:  xXDYu_im
+  //  part_id = [0, nparts) and sp = [0, 2)
+  //    0:  Ys_re     1:  Ys_im
 
   int send_alloc_t = nparts_send[TOP]*(nparts_send[TOP] > 0) + (nparts_send[TOP] == 0);
   int send_alloc_b = nparts_send[BOTTOM]*(nparts_send[BOTTOM] > 0) + (nparts_send[BOTTOM] == 0);
@@ -803,44 +818,36 @@ void cuda_partial_sum_k(void)
 
   /* Pack partial sums */
   if (nparts_send[TOP] > 0) {
-    pack_sums_t<<<bin_num_knb, bin_dim_knb>>>(_sum_send_t, _offset_t,
-      _bin_start, _bin_count, _part_ind, ncoeffs_max,
-      _int_Yp_re, _int_Yp_im,
-      _int_rDYu_re, _int_rDYu_im,
-      _int_xXDYu_re, _int_xXDYu_im);
+    pack_s_sums_t<<<bin_num_knb, bin_dim_knb>>>(_sum_send_t, _offset_t,
+      _bin_start, _bin_count, _part_ind, s_ncoeffs_max,
+      _int_Ys_re, _int_Ys_im);
   } else {
     //cudaMemset(_sum_send_t, 0., send_alloc_t * npsums * sizeof(real));
   }
 
   if (nparts_send[BOTTOM] > 0) {
-    pack_sums_b<<<bin_num_knb, bin_dim_knb>>>(_sum_send_b, _offset_b,
-      _bin_start, _bin_count, _part_ind, ncoeffs_max,
-      _int_Yp_re, _int_Yp_im,
-      _int_rDYu_re, _int_rDYu_im,
-      _int_xXDYu_re, _int_xXDYu_im);
+    pack_s_sums_b<<<bin_num_knb, bin_dim_knb>>>(_sum_send_b, _offset_b,
+      _bin_start, _bin_count, _part_ind, s_ncoeffs_max,
+      _int_Ys_re, _int_Ys_im);
   } else {
     //cudaMemset(_sum_send_b, 0., send_alloc_b * npsums * sizeof(real));
   }
   cudaDeviceSynchronize();  // ensure packing is complete
 
   /* Communicate partial sums with MPI */
-  mpi_send_psums_k();
+  mpi_send_s_psums_k();
 
   // Offsets are the same since they're over both ghost bins and edge bins
   /* Unpack and complete partial sums */
   if (nparts_recv[TOP] > 0) {
-    unpack_sums_t<<<bin_num_knb, bin_dim_knb>>>(_sum_recv_t, _offset_t,
-      _bin_start, _bin_count, _part_ind, ncoeffs_max,
-      _int_Yp_re, _int_Yp_im,
-      _int_rDYu_re, _int_rDYu_im,
-      _int_xXDYu_re, _int_xXDYu_im);
+    unpack_s_sums_t<<<bin_num_knb, bin_dim_knb>>>(_sum_recv_t, _offset_t,
+      _bin_start, _bin_count, _part_ind, s_ncoeffs_max,
+      _int_Ys_re, _int_Ys_im);
   }
   if (nparts_recv[BOTTOM] > 0) {
-    unpack_sums_b<<<bin_num_knb, bin_dim_knb>>>(_sum_recv_b, _offset_b,
-      _bin_start, _bin_count, _part_ind, ncoeffs_max,
-      _int_Yp_re, _int_Yp_im,
-      _int_rDYu_re, _int_rDYu_im,
-      _int_xXDYu_re, _int_xXDYu_im);
+    unpack_s_sums_b<<<bin_num_knb, bin_dim_knb>>>(_sum_recv_b, _offset_b,
+      _bin_start, _bin_count, _part_ind, s_ncoeffs_max,
+      _int_Ys_re, _int_Ys_im);
   }
   cudaDeviceSynchronize();  // ensure packing is complete
 
@@ -856,48 +863,124 @@ void cuda_partial_sum_k(void)
 }
 
 extern "C"
-void cuda_lamb_err(real *error, int *number)
+void cuda_scalar_lamb(void)
+{
+  /* CUDA exec config */
+  dim3 num_parts(nparts); // nparts blocks with nnodes threads each
+  dim3 dim_nodes(NNODES);
+  dim3 num_partcoeff(nparts, s_ncoeffs_max);
+  dim3 dim_coeff(s_ncoeffs_max);
+
+  //printf("N%d >> Determining Lamb's coefficients (nparts = %d)\n", rank, nparts);
+  if (nparts > 0) {
+    /* Temp storage for field variables at quadrature nodes */
+    real *_ss;    // scalar
+    checkCudaErrors(cudaMalloc(&_ss, NNODES * nparts * sizeof(real)));
+
+    /* Interpolate field varaibles to quadrature nodes */
+    scalar_check_nodes<<<num_parts, dim_nodes>>>(_parts, _bc_s, _DOM);
+    scalar_interpolate_nodes<<<num_parts, dim_nodes>>>(_s, _ss,
+      _parts, _bc_s);
+
+    /* Create scalar product storage using max particle coefficient size */
+    int sp_size = nparts * NNODES * s_ncoeffs_max;
+    checkCudaErrors(cudaMalloc(&_int_Ys_re, sp_size * sizeof(real)));
+    checkCudaErrors(cudaMalloc(&_int_Ys_im, sp_size * sizeof(real)));
+
+    /* Perform partial sums of lebedev quadrature */
+    scalar_lebedev_quadrature<<<num_partcoeff, dim_nodes>>>(_parts,
+      s_ncoeffs_max, _ss, _int_Ys_re, _int_Ys_im);
+
+    checkCudaErrors(cudaFree(_ss));
+  }
+
+  /* Accumulate partial sums (all procs need to be involved) */
+  cuda_scalar_partial_sum_i();  // 2a) Calculate partial sums over x face
+  cuda_scalar_partial_sum_j();  // 2b) Calculate partial sums over y face
+  cuda_scalar_partial_sum_k();  // 2c) Calculate partial sums over z face
+
+  if (nparts > 0) {
+    /* Compute lambs coefficients from partial sums */
+    scalar_compute_coeffs<<<num_parts, dim_coeff>>>(_parts,
+      s_ncoeffs_max, nparts, _int_Ys_re, _int_Ys_im);
+
+    /* Free */
+    checkCudaErrors(cudaFree(_int_Ys_re));
+    checkCudaErrors(cudaFree(_int_Ys_im));
+  }
+}
+
+extern "C"
+real cuda_scalar_lamb_err(void)
 {
   //printf("N%d >> Determining Lamb's error\n", rank);
-  real err = DBL_MIN;
-  int num = -1;
-  struct {double err; int num;} data;
+  real error = DBL_MIN;
   if (nparts > 0) {
-    // create a place to store sorted coefficients and errors
+    // create a place to store errors
     real *_part_errors;
-    int *_part_nums;
     cudaMalloc((void**) &_part_errors, nparts*sizeof(real));
-    cudaMalloc((void**) &_part_nums, nparts*sizeof(int));
-
+    
     // sort the coefficients and calculate errors along the way
     dim3 numBlocks(nparts);
-    dim3 dimBlocks(ncoeffs_max);
+    dim3 dimBlocks(s_ncoeffs_max);
 
-    compute_error<<<numBlocks, dimBlocks>>>(lamb_cut, ncoeffs_max, nparts,
-     _parts, _part_errors, _part_nums);
+    scalar_compute_error<<<numBlocks, dimBlocks>>>(lamb_cut_scalar,
+     s_ncoeffs_max, nparts, _parts, _part_errors);
 
     // find maximum error of all particles
     thrust::device_ptr<real> t_part_errors(_part_errors);
-//    error = thrust::reduce(t_part_errors,
-//                           t_part_errors + nparts,
-//                           0., thrust::maximum<real>());
-    thrust::device_vector<real>::iterator iter = thrust::max_element(t_part_errors, t_part_errors + nparts);
-    int pos = thrust::device_pointer_cast(&iter[0]) - t_part_errors;
-    cudaMemcpy(&err, _part_errors + pos, sizeof(real), cudaMemcpyDeviceToHost);
-    cudaMemcpy(&num, _part_nums + pos, sizeof(int), cudaMemcpyDeviceToHost);
-    data.err = err;
-    data.num = num;
+    error = thrust::reduce(t_part_errors,
+                           t_part_errors + nparts,
+                           0., thrust::maximum<real>());
 
     // clean up
     cudaFree(_part_errors);
-    cudaFree(_part_nums);
 
     // store copy of coefficients for future calculation
-    store_coeffs<<<numBlocks, dimBlocks>>>(_parts, nparts, ncoeffs_max);
+    scalar_store_coeffs<<<numBlocks, dimBlocks>>>(_parts, nparts, s_ncoeffs_max);
   }
 
-  // MPI reduce to find max error and its part number
-  MPI_Allreduce(MPI_IN_PLACE, &data, 1, MPI_DOUBLE_INT, MPI_MAXLOC, MPI_COMM_WORLD);
-  *error = data.err;
-  *number = data.num;
+  // MPI reduce to find max error
+  MPI_Allreduce(MPI_IN_PLACE, &error, 1, mpi_real, MPI_MAX, MPI_COMM_WORLD);
+  return error;
+}
+
+extern "C"
+void cuda_store_s(void)
+{
+  checkCudaErrors(cudaMemcpy(_s0, _s, dom[rank].Gcc.s3b * sizeof(real),
+    cudaMemcpyDeviceToDevice));
+  checkCudaErrors(cudaMemcpy(_s_conv0, _s_conv, dom[rank].Gcc.s3b * sizeof(real),
+    cudaMemcpyDeviceToDevice));
+  checkCudaErrors(cudaMemcpy(_s_diff0, _s_diff, dom[rank].Gcc.s3b * sizeof(real),
+    cudaMemcpyDeviceToDevice));
+}
+
+void cuda_scalar_update_part(void)
+{
+  if(nparts > 0) {
+    int t_nparts = nparts * (nparts < MAX_THREADS_1D)
+                  + MAX_THREADS_1D * (nparts >= MAX_THREADS_1D);
+    int b_nparts = (int) ceil((real) nparts / (real) t_nparts);
+
+    dim3 dim_nparts(t_nparts);
+    dim3 num_nparts(b_nparts);
+    update_part_scalar<<<num_nparts, dim_nparts>>>(_parts, nparts, dt, s_k);
+  }
+}
+
+void printMemInfo()
+{
+  size_t free_byte;
+  size_t total_byte;
+  cudaError_t cuda_status = cudaMemGetInfo(&free_byte, &total_byte);
+
+  if(cudaSuccess != cuda_status) {
+    printf("Error: cudaMemGetInfo fails, %s\n", cudaGetErrorString(cuda_status));
+    exit(1);
+  }
+
+  printf("N%d >> nparts = %d, nparts_subdom = %d, GPU memory usage: used = %zu B, free = %zu B, total = %zu B\n",
+    rank, nparts, nparts_subdom, (total_byte - free_byte), free_byte, total_byte);
+  fflush(stdout);
 }
