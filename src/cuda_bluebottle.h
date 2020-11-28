@@ -2200,4 +2200,6 @@ __global__ void calc_dudy(real *u, real *dudy, int j);
  ******
  */
 
+__global__ void update_vel_BC(BC *bc, real v_bc_tdelay, real ttime);
+
 #endif

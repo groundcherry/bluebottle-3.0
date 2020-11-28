@@ -1,14 +1,15 @@
 #!/bin/sh
 # submit.sh
 #
-#SBATCH --partition=gpu
-#SBATCH --time=01:00:00
+#SBATCH --partition=volta
+#SBATCH --time=4-00:00:00
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=4
-#SBATCH --gres=gpu:4
-#SBATCH --cpus-per-task=6
-#SBATCH --job-name=example
-#SBATCH --output=bbottle.out
+#SBATCH --ntasks-per-node=2
+#SBATCH --gres=gpu:2
+#SBATCH --cpus-per-task=1
+#SBATCH --job-name=100p
+#SBATCH --output=bb.out
+#SBATCH --mem=10Gb
 
 #./build-restart.sh $SLURM_NNODES $SLURM_NTASKS_PER_NODE $SLURM_CPUS_PER_TASK \
 #                    $SLURM_JOB_NAME $SLURM_JOB_ID $SLURM_NTASKS

@@ -8,6 +8,11 @@ It is a research code developed by Daniel Willen (daniel.willen@jhu.edu) under
 the supervision of Dr. Adam Sierakowski (sierakowski@jhu.edu) and Prof. Andrea
 Prosperetti at the Johns Hopkins University.
 
+The capability of solving temperature field using many-GPU is added in a
+recent extension to Bluebottle-3.0 by Yuhang Zhang (yzhan175@jhu.edu) based on
+Yayun Wang's work which runs in single-GPU. The code is able to run Rayleigh
+Benard convection simulation with several thousand resolved particles.
+
 The original single-GPU code was developed by Adam Sierakowski under the 
 supervision of Prof. Prosperetti and can be found at:
   https://github.com/groundcherry/bluebottle

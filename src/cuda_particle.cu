@@ -1415,8 +1415,8 @@ void cuda_move_parts_sub()
       rho_f, nu, interaction_length_ratio, dt, _DOM);
 
     /* Free _part_bin, _part_ind (re-malloc'd in comm functions) */
-    cudaFree(_part_ind);
-    cudaFree(_part_bin);
+    checkCudaErrors(cudaFree(_part_ind));
+    checkCudaErrors(cudaFree(_part_bin));
 
     /* Communicate forces */
     cuda_update_part_forces_i();
@@ -1466,8 +1466,8 @@ void cuda_move_parts_sub()
       rho_f, nu, interaction_length_ratio, dt, _DOM);
   
     /* Free memory */
-    cudaFree(_part_ind);
-    cudaFree(_part_bin);
+    checkCudaErrors(cudaFree(_part_ind));
+    checkCudaErrors(cudaFree(_part_bin));
 
   } // end if (nparts > 1)
 }
@@ -1680,14 +1680,14 @@ extern "C"
 void cuda_part_BC_p(void)
 {
   part_BC_p<<<blocks.Gcc.num_kn, blocks.Gcc.dim_kn>>>(_p0, _rhs_p, _phase,
-    _phase_shell, _parts, mu, nu, dt, dt0, gradP, rho_f, nparts);
+    _phase_shell, _parts, mu, nu, dt, dt0, gradP, rho_f, nparts, s_beta, s_ref, g);
 }
 
 extern "C"
 void cuda_part_p_fill(void)
 {
     part_BC_p_fill<<<blocks.Gcc.num_kn, blocks.Gcc.dim_kn>>>(_p, _phase, _parts,
-      mu, nu, rho_f, gradP, nparts);
+      mu, nu, rho_f, gradP, nparts, s_beta, s_ref, g);
 }
 
 extern "C"

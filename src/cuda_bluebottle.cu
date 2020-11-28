@@ -432,6 +432,14 @@ void cuda_dom_malloc_dev(void)
 }
 
 extern "C"
+void cuda_update_bc(void)
+{
+    //printf("\nupdate bc\n");
+    update_vel_BC<<<1, 1>>>(_bc, v_bc_tdelay, ttime);
+
+}
+
+extern "C"
 void cuda_dom_push(void)
 {
   // Push initialized domain data from host to device
@@ -991,6 +999,219 @@ void cuda_blocks_init()
   blocks.Gfz.num_inb_s = Gfz_num_inb_s;
   blocks.Gfz.num_jnb_s = Gfz_num_jnb_s;
   blocks.Gfz.num_knb_s = Gfz_num_knb_s;
+
+  #ifdef DDEBUG
+    cuda_blocks_write();
+  #endif
+}
+
+extern "C"
+void cuda_blocks_write(void)
+{
+  char fname[CHAR_BUF_SIZE];
+  sprintf(fname, "%s/rank-%d-map.debug", ROOT_DIR, rank);
+  FILE *outfile = fopen(fname, "a");
+  if (outfile == NULL) {
+    fprintf(stderr, "Could not open file %s\n", fname);
+    exit(EXIT_FAILURE);
+  }
+
+  fprintf(outfile, "\n\n");
+  fprintf(outfile, "Blocks:\n");
+
+  /* Computational Grid - Gcc */
+  fprintf(outfile, "  blocks.Gcc:\n");
+  fprintf(outfile, "    num_in = (%d, %d, %d), dim_in = (%d, %d, %d)\n",
+    blocks.Gcc.num_in.x, blocks.Gcc.num_in.y, blocks.Gcc.num_in.z,
+    blocks.Gcc.dim_in.x, blocks.Gcc.dim_in.y, blocks.Gcc.dim_in.z);
+  fprintf(outfile, "    num_jn = (%d, %d, %d), dim_jn = (%d, %d, %d)\n",
+    blocks.Gcc.num_jn.x, blocks.Gcc.num_jn.y, blocks.Gcc.num_jn.z,
+    blocks.Gcc.dim_jn.x, blocks.Gcc.dim_jn.y, blocks.Gcc.dim_jn.z);
+  fprintf(outfile, "    num_kn = (%d, %d, %d), dim_kn = (%d, %d, %d)\n",
+    blocks.Gcc.num_kn.x, blocks.Gcc.num_kn.y, blocks.Gcc.num_kn.z,
+    blocks.Gcc.dim_kn.x, blocks.Gcc.dim_kn.y, blocks.Gcc.dim_kn.z);
+  fprintf(outfile, "    num_s3 = (%d, %d, %d), dim_s3 = (%d, %d, %d)\n",
+    blocks.Gcc.num_s3.x, blocks.Gcc.num_s3.y, blocks.Gcc.num_s3.z,
+    blocks.Gcc.dim_s3.x, blocks.Gcc.dim_s3.y, blocks.Gcc.dim_s3.z);
+  /* Computational Shared Grid, Gcc */
+  fprintf(outfile, "    num_in_s = (%d, %d, %d), dim_in_s = (%d, %d, %d)\n",
+    blocks.Gcc.num_in_s.x, blocks.Gcc.num_in_s.y, blocks.Gcc.num_in_s.z,
+    blocks.Gcc.dim_in_s.x, blocks.Gcc.dim_in_s.y, blocks.Gcc.dim_in_s.z);
+  fprintf(outfile, "    num_jn_s = (%d, %d, %d), dim_jn_s = (%d, %d, %d)\n",
+    blocks.Gcc.num_jn_s.x, blocks.Gcc.num_jn_s.y, blocks.Gcc.num_jn_s.z,
+    blocks.Gcc.dim_jn_s.x, blocks.Gcc.dim_jn_s.y, blocks.Gcc.dim_jn_s.z);
+  fprintf(outfile, "    num_kn_s = (%d, %d, %d), dim_kn_s = (%d, %d, %d)\n",
+    blocks.Gcc.num_kn_s.x, blocks.Gcc.num_kn_s.y, blocks.Gcc.num_kn_s.z,
+    blocks.Gcc.dim_kn_s.x, blocks.Gcc.dim_kn_s.y, blocks.Gcc.dim_kn_s.z);
+  /* Ghost grid - Gcc */
+  fprintf(outfile, "    num_inb = (%d, %d, %d), dim_inb = (%d, %d, %d)\n",
+    blocks.Gcc.num_inb.x, blocks.Gcc.num_inb.y, blocks.Gcc.num_inb.z,
+    blocks.Gcc.dim_inb.x, blocks.Gcc.dim_inb.y, blocks.Gcc.dim_inb.z);
+  fprintf(outfile, "    num_jnb = (%d, %d, %d), dim_jnb = (%d, %d, %d)\n",
+    blocks.Gcc.num_jnb.x, blocks.Gcc.num_jnb.y, blocks.Gcc.num_jnb.z,
+    blocks.Gcc.dim_jnb.x, blocks.Gcc.dim_jnb.y, blocks.Gcc.dim_jnb.z);
+  fprintf(outfile, "    num_knb = (%d, %d, %d), dim_knb = (%d, %d, %d)\n",
+    blocks.Gcc.num_knb.x, blocks.Gcc.num_knb.y, blocks.Gcc.num_knb.z,
+    blocks.Gcc.dim_knb.x, blocks.Gcc.dim_knb.y, blocks.Gcc.dim_knb.z);
+  fprintf(outfile, "    num_s3b = (%d, %d, %d), dim_s3b = (%d, %d, %d)\n",
+    blocks.Gcc.num_s3b.x, blocks.Gcc.num_s3b.y, blocks.Gcc.num_s3b.z,
+    blocks.Gcc.dim_s3b.x, blocks.Gcc.dim_s3b.y, blocks.Gcc.dim_s3b.z);
+  /* Ghost Shared Grid - Gcc */
+  fprintf(outfile, "    num_inb_s = (%d, %d, %d), dim_inb_s = (%d, %d, %d)\n",
+    blocks.Gcc.num_inb_s.x, blocks.Gcc.num_inb_s.y, blocks.Gcc.num_inb_s.z,
+    blocks.Gcc.dim_inb_s.x, blocks.Gcc.dim_inb_s.y, blocks.Gcc.dim_inb_s.z);
+  fprintf(outfile, "    num_jnb_s = (%d, %d, %d), dim_jnb_s = (%d, %d, %d)\n",
+    blocks.Gcc.num_jnb_s.x, blocks.Gcc.num_jnb_s.y, blocks.Gcc.num_jnb_s.z,
+    blocks.Gcc.dim_jnb_s.x, blocks.Gcc.dim_jnb_s.y, blocks.Gcc.dim_jnb_s.z);
+  fprintf(outfile, "    num_knb_s = (%d, %d, %d), dim_knb_s = (%d, %d, %d)\n",
+    blocks.Gcc.num_knb_s.x, blocks.Gcc.num_knb_s.y, blocks.Gcc.num_knb_s.z,
+    blocks.Gcc.dim_knb_s.x, blocks.Gcc.dim_knb_s.y, blocks.Gcc.dim_knb_s.z);
+
+  /* Computational Grid - Gfx */
+  fprintf(outfile, "  blocks.Gfx:\n");
+  fprintf(outfile, "    num_in = (%d, %d, %d), dim_in = (%d, %d, %d)\n",
+    blocks.Gfx.num_in.x, blocks.Gfx.num_in.y, blocks.Gfx.num_in.z,
+    blocks.Gfx.dim_in.x, blocks.Gfx.dim_in.y, blocks.Gfx.dim_in.z);
+  fprintf(outfile, "    num_jn = (%d, %d, %d), dim_jn = (%d, %d, %d)\n",
+    blocks.Gfx.num_jn.x, blocks.Gfx.num_jn.y, blocks.Gfx.num_jn.z,
+    blocks.Gfx.dim_jn.x, blocks.Gfx.dim_jn.y, blocks.Gfx.dim_jn.z);
+  fprintf(outfile, "    num_kn = (%d, %d, %d), dim_kn = (%d, %d, %d)\n",
+    blocks.Gfx.num_kn.x, blocks.Gfx.num_kn.y, blocks.Gfx.num_kn.z,
+    blocks.Gfx.dim_kn.x, blocks.Gfx.dim_kn.y, blocks.Gfx.dim_kn.z);
+  fprintf(outfile, "    num_s3 = (%d, %d, %d), dim_s3 = (%d, %d, %d)\n",
+    blocks.Gfx.num_s3.x, blocks.Gfx.num_s3.y, blocks.Gfx.num_s3.z,
+    blocks.Gfx.dim_s3.x, blocks.Gfx.dim_s3.y, blocks.Gfx.dim_s3.z);
+  /* Computational Shared Grid - Gfx */
+  fprintf(outfile, "    num_in_s = (%d, %d, %d), dim_in_s = (%d, %d, %d)\n",
+    blocks.Gfx.num_in_s.x, blocks.Gfx.num_in_s.y, blocks.Gfx.num_in_s.z,
+    blocks.Gfx.dim_in_s.x, blocks.Gfx.dim_in_s.y, blocks.Gfx.dim_in_s.z);
+  fprintf(outfile, "    num_jn_s = (%d, %d, %d), dim_jn_s = (%d, %d, %d)\n",
+    blocks.Gfx.num_jn_s.x, blocks.Gfx.num_jn_s.y, blocks.Gfx.num_jn_s.z,
+    blocks.Gfx.dim_jn_s.x, blocks.Gfx.dim_jn_s.y, blocks.Gfx.dim_jn_s.z);
+  fprintf(outfile, "    num_kn_s = (%d, %d, %d), dim_kn_s = (%d, %d, %d)\n",
+    blocks.Gfx.num_kn_s.x, blocks.Gfx.num_kn_s.y, blocks.Gfx.num_kn_s.z,
+    blocks.Gfx.dim_kn_s.x, blocks.Gfx.dim_kn_s.y, blocks.Gfx.dim_kn_s.z);
+  /* Ghost grid - Gfx */
+  fprintf(outfile, "    num_inb = (%d, %d, %d), dim_inb = (%d, %d, %d)\n",
+    blocks.Gfx.num_inb.x, blocks.Gfx.num_inb.y, blocks.Gfx.num_inb.z,
+    blocks.Gfx.dim_inb.x, blocks.Gfx.dim_inb.y, blocks.Gfx.dim_inb.z);
+  fprintf(outfile, "    num_jnb = (%d, %d, %d), dim_jnb = (%d, %d, %d)\n",
+    blocks.Gfx.num_jnb.x, blocks.Gfx.num_jnb.y, blocks.Gfx.num_jnb.z,
+    blocks.Gfx.dim_jnb.x, blocks.Gfx.dim_jnb.y, blocks.Gfx.dim_jnb.z);
+  fprintf(outfile, "    num_knb = (%d, %d, %d), dim_knb = (%d, %d, %d)\n",
+    blocks.Gfx.num_knb.x, blocks.Gfx.num_knb.y, blocks.Gfx.num_knb.z,
+    blocks.Gfx.dim_knb.x, blocks.Gfx.dim_knb.y, blocks.Gfx.dim_knb.z);
+  fprintf(outfile, "    num_s3b = (%d, %d, %d), dim_s3b = (%d, %d, %d)\n",
+    blocks.Gfx.num_s3b.x, blocks.Gfx.num_s3b.y, blocks.Gfx.num_s3b.z,
+    blocks.Gfx.dim_s3b.x, blocks.Gfx.dim_s3b.y, blocks.Gfx.dim_s3b.z);
+  /* Ghost Shared Grid - Gfx */
+  fprintf(outfile, "    num_inb_s = (%d, %d, %d), dim_inb_s = (%d, %d, %d)\n",
+    blocks.Gfx.num_inb_s.x, blocks.Gfx.num_inb_s.y, blocks.Gfx.num_inb_s.z,
+    blocks.Gfx.dim_inb_s.x, blocks.Gfx.dim_inb_s.y, blocks.Gfx.dim_inb_s.z);
+  fprintf(outfile, "    num_jnb_s = (%d, %d, %d), dim_jnb_s = (%d, %d, %d)\n",
+    blocks.Gfx.num_jnb_s.x, blocks.Gfx.num_jnb_s.y, blocks.Gfx.num_jnb_s.z,
+    blocks.Gfx.dim_jnb_s.x, blocks.Gfx.dim_jnb_s.y, blocks.Gfx.dim_jnb_s.z);
+  fprintf(outfile, "    num_knb_s = (%d, %d, %d), dim_knb_s = (%d, %d, %d)\n",
+    blocks.Gfx.num_knb_s.x, blocks.Gfx.num_knb_s.y, blocks.Gfx.num_knb_s.z,
+    blocks.Gfx.dim_knb_s.x, blocks.Gfx.dim_knb_s.y, blocks.Gfx.dim_knb_s.z);
+
+  /* Computational Grid - Gfy */
+  fprintf(outfile, "  blocks.Gfy:\n");
+  fprintf(outfile, "    num_in = (%d, %d, %d), dim_in = (%d, %d, %d)\n",
+    blocks.Gfy.num_in.x, blocks.Gfy.num_in.y, blocks.Gfy.num_in.z,
+    blocks.Gfy.dim_in.x, blocks.Gfy.dim_in.y, blocks.Gfy.dim_in.z);
+  fprintf(outfile, "    num_jn = (%d, %d, %d), dim_jn = (%d, %d, %d)\n",
+    blocks.Gfy.num_jn.x, blocks.Gfy.num_jn.y, blocks.Gfy.num_jn.z,
+    blocks.Gfy.dim_jn.x, blocks.Gfy.dim_jn.y, blocks.Gfy.dim_jn.z);
+  fprintf(outfile, "    num_kn = (%d, %d, %d), dim_kn = (%d, %d, %d)\n",
+    blocks.Gfy.num_kn.x, blocks.Gfy.num_kn.y, blocks.Gfy.num_kn.z,
+    blocks.Gfy.dim_kn.x, blocks.Gfy.dim_kn.y, blocks.Gfy.dim_kn.z);
+  fprintf(outfile, "    num_s3 = (%d, %d, %d), dim_s3 = (%d, %d, %d)\n",
+    blocks.Gfy.num_s3.x, blocks.Gfy.num_s3.y, blocks.Gfy.num_s3.z,
+    blocks.Gfy.dim_s3.x, blocks.Gfy.dim_s3.y, blocks.Gfy.dim_s3.z);
+  /* Computational Shared Grid - Gfy */
+  fprintf(outfile, "    num_in_s = (%d, %d, %d), dim_in_s = (%d, %d, %d)\n",
+    blocks.Gfy.num_in_s.x, blocks.Gfy.num_in_s.y, blocks.Gfy.num_in_s.z,
+    blocks.Gfy.dim_in_s.x, blocks.Gfy.dim_in_s.y, blocks.Gfy.dim_in_s.z);
+  fprintf(outfile, "    num_jn_s = (%d, %d, %d), dim_jn_s = (%d, %d, %d)\n",
+    blocks.Gfy.num_jn_s.x, blocks.Gfy.num_jn_s.y, blocks.Gfy.num_jn_s.z,
+    blocks.Gfy.dim_jn_s.x, blocks.Gfy.dim_jn_s.y, blocks.Gfy.dim_jn_s.z);
+  fprintf(outfile, "    num_kn_s = (%d, %d, %d), dim_kn_s = (%d, %d, %d)\n",
+    blocks.Gfy.num_kn_s.x, blocks.Gfy.num_kn_s.y, blocks.Gfy.num_kn_s.z,
+    blocks.Gfy.dim_kn_s.x, blocks.Gfy.dim_kn_s.y, blocks.Gfy.dim_kn_s.z);
+  /* Ghost grid - Gfy */
+  fprintf(outfile, "    num_inb = (%d, %d, %d), dim_inb = (%d, %d, %d)\n",
+    blocks.Gfy.num_inb.x, blocks.Gfy.num_inb.y, blocks.Gfy.num_inb.z,
+    blocks.Gfy.dim_inb.x, blocks.Gfy.dim_inb.y, blocks.Gfy.dim_inb.z);
+  fprintf(outfile, "    num_jnb = (%d, %d, %d), dim_jnb = (%d, %d, %d)\n",
+    blocks.Gfy.num_jnb.x, blocks.Gfy.num_jnb.y, blocks.Gfy.num_jnb.z,
+    blocks.Gfy.dim_jnb.x, blocks.Gfy.dim_jnb.y, blocks.Gfy.dim_jnb.z);
+  fprintf(outfile, "    num_knb = (%d, %d, %d), dim_knb = (%d, %d, %d)\n",
+    blocks.Gfy.num_knb.x, blocks.Gfy.num_knb.y, blocks.Gfy.num_knb.z,
+    blocks.Gfy.dim_knb.x, blocks.Gfy.dim_knb.y, blocks.Gfy.dim_knb.z);
+  fprintf(outfile, "    num_s3b = (%d, %d, %d), dim_s3b = (%d, %d, %d)\n",
+    blocks.Gfy.num_s3b.x, blocks.Gfy.num_s3b.y, blocks.Gfy.num_s3b.z,
+    blocks.Gfy.dim_s3b.x, blocks.Gfy.dim_s3b.y, blocks.Gfy.dim_s3b.z);
+  /* Ghost Shared Grid - Gfy */
+  fprintf(outfile, "    num_inb_s = (%d, %d, %d), dim_inb_s = (%d, %d, %d)\n",
+    blocks.Gfy.num_inb_s.x, blocks.Gfy.num_inb_s.y, blocks.Gfy.num_inb_s.z,
+    blocks.Gfy.dim_inb_s.x, blocks.Gfy.dim_inb_s.y, blocks.Gfy.dim_inb_s.z);
+  fprintf(outfile, "    num_jnb_s = (%d, %d, %d), dim_jnb_s = (%d, %d, %d)\n",
+    blocks.Gfy.num_jnb_s.x, blocks.Gfy.num_jnb_s.y, blocks.Gfy.num_jnb_s.z,
+    blocks.Gfy.dim_jnb_s.x, blocks.Gfy.dim_jnb_s.y, blocks.Gfy.dim_jnb_s.z);
+  fprintf(outfile, "    num_knb_s = (%d, %d, %d), dim_knb_s = (%d, %d, %d)\n",
+    blocks.Gfy.num_knb_s.x, blocks.Gfy.num_knb_s.y, blocks.Gfy.num_knb_s.z,
+    blocks.Gfy.dim_knb_s.x, blocks.Gfy.dim_knb_s.y, blocks.Gfy.dim_knb_s.z);
+
+  /* Computational Grid - Gfz */
+  fprintf(outfile, "  blocks.Gfz:\n");
+  fprintf(outfile, "    num_in = (%d, %d, %d), dim_in = (%d, %d, %d)\n",
+    blocks.Gfz.num_in.x, blocks.Gfz.num_in.y, blocks.Gfz.num_in.z,
+    blocks.Gfz.dim_in.x, blocks.Gfz.dim_in.y, blocks.Gfz.dim_in.z);
+  fprintf(outfile, "    num_jn = (%d, %d, %d), dim_jn = (%d, %d, %d)\n",
+    blocks.Gfz.num_jn.x, blocks.Gfz.num_jn.y, blocks.Gfz.num_jn.z,
+    blocks.Gfz.dim_jn.x, blocks.Gfz.dim_jn.y, blocks.Gfz.dim_jn.z);
+  fprintf(outfile, "    num_kn = (%d, %d, %d), dim_kn = (%d, %d, %d)\n",
+    blocks.Gfz.num_kn.x, blocks.Gfz.num_kn.y, blocks.Gfz.num_kn.z,
+    blocks.Gfz.dim_kn.x, blocks.Gfz.dim_kn.y, blocks.Gfz.dim_kn.z);
+  fprintf(outfile, "    num_s3 = (%d, %d, %d), dim_s3 = (%d, %d, %d)\n",
+    blocks.Gfz.num_s3.x, blocks.Gfz.num_s3.y, blocks.Gfz.num_s3.z,
+    blocks.Gfz.dim_s3.x, blocks.Gfz.dim_s3.y, blocks.Gfz.dim_s3.z);
+  /* Computational Shared Grid - Gfz */
+  fprintf(outfile, "    num_in_s = (%d, %d, %d), dim_in_s = (%d, %d, %d)\n",
+    blocks.Gfz.num_in_s.x, blocks.Gfz.num_in_s.y, blocks.Gfz.num_in_s.z,
+    blocks.Gfz.dim_in_s.x, blocks.Gfz.dim_in_s.y, blocks.Gfz.dim_in_s.z);
+  fprintf(outfile, "    num_jn_s = (%d, %d, %d), dim_jn_s = (%d, %d, %d)\n",
+    blocks.Gfz.num_jn_s.x, blocks.Gfz.num_jn_s.y, blocks.Gfz.num_jn_s.z,
+    blocks.Gfz.dim_jn_s.x, blocks.Gfz.dim_jn_s.y, blocks.Gfz.dim_jn_s.z);
+  fprintf(outfile, "    num_kn_s = (%d, %d, %d), dim_kn_s = (%d, %d, %d)\n",
+    blocks.Gfz.num_kn_s.x, blocks.Gfz.num_kn_s.y, blocks.Gfz.num_kn_s.z,
+    blocks.Gfz.dim_kn_s.x, blocks.Gfz.dim_kn_s.y, blocks.Gfz.dim_kn_s.z);
+  /* Ghost grid - Gfz */
+  fprintf(outfile, "    num_inb = (%d, %d, %d), dim_inb = (%d, %d, %d)\n",
+    blocks.Gfz.num_inb.x, blocks.Gfz.num_inb.y, blocks.Gfz.num_inb.z,
+    blocks.Gfz.dim_inb.x, blocks.Gfz.dim_inb.y, blocks.Gfz.dim_inb.z);
+  fprintf(outfile, "    num_jnb = (%d, %d, %d), dim_jnb = (%d, %d, %d)\n",
+    blocks.Gfz.num_jnb.x, blocks.Gfz.num_jnb.y, blocks.Gfz.num_jnb.z,
+    blocks.Gfz.dim_jnb.x, blocks.Gfz.dim_jnb.y, blocks.Gfz.dim_jnb.z);
+  fprintf(outfile, "    num_knb = (%d, %d, %d), dim_knb = (%d, %d, %d)\n",
+    blocks.Gfz.num_knb.x, blocks.Gfz.num_knb.y, blocks.Gfz.num_knb.z,
+    blocks.Gfz.dim_knb.x, blocks.Gfz.dim_knb.y, blocks.Gfz.dim_knb.z);
+  fprintf(outfile, "    num_s3b = (%d, %d, %d), dim_s3b = (%d, %d, %d)\n",
+    blocks.Gfz.num_s3b.x, blocks.Gfz.num_s3b.y, blocks.Gfz.num_s3b.z,
+    blocks.Gfz.dim_s3b.x, blocks.Gfz.dim_s3b.y, blocks.Gfz.dim_s3b.z);
+  /* Ghost Shared Grid - Gfz */
+  fprintf(outfile, "    num_inb_s = (%d, %d, %d), dim_inb_s = (%d, %d, %d)\n",
+    blocks.Gfz.num_inb_s.x, blocks.Gfz.num_inb_s.y, blocks.Gfz.num_inb_s.z,
+    blocks.Gfz.dim_inb_s.x, blocks.Gfz.dim_inb_s.y, blocks.Gfz.dim_inb_s.z);
+  fprintf(outfile, "    num_jnb_s = (%d, %d, %d), dim_jnb_s = (%d, %d, %d)\n",
+    blocks.Gfz.num_jnb_s.x, blocks.Gfz.num_jnb_s.y, blocks.Gfz.num_jnb_s.z,
+    blocks.Gfz.dim_jnb_s.x, blocks.Gfz.dim_jnb_s.y, blocks.Gfz.dim_jnb_s.z);
+  fprintf(outfile, "    num_knb_s = (%d, %d, %d), dim_knb_s = (%d, %d, %d)\n",
+    blocks.Gfz.num_knb_s.x, blocks.Gfz.num_knb_s.y, blocks.Gfz.num_knb_s.z,
+    blocks.Gfz.dim_knb_s.x, blocks.Gfz.dim_knb_s.y, blocks.Gfz.dim_knb_s.z);
+
+  fclose(outfile);
 }
 
 extern "C"
@@ -1566,9 +1787,15 @@ void cuda_find_dt(void)
   cudaFree(wtmp);
 
   // find dt on each subdomain
-  dt = u_max/dom[rank].dx + 2.*nu/(dom[rank].dx * dom[rank].dx);
-  dt += v_max/dom[rank].dy + 2.*nu/(dom[rank].dy * dom[rank].dy);
-  dt += w_max/dom[rank].dz + 2.*nu/(dom[rank].dz * dom[rank].dz);
+  if(SCALAR >= 1 && s_D > nu) {
+    dt = u_max/dom[rank].dx + 2.*s_D/(dom[rank].dx * dom[rank].dx);
+    dt += v_max/dom[rank].dy + 2.*s_D/(dom[rank].dy * dom[rank].dy);
+    dt += w_max/dom[rank].dz + 2.*s_D/(dom[rank].dz * dom[rank].dz);
+  } else {
+    dt = u_max/dom[rank].dx + 2.*nu/(dom[rank].dx * dom[rank].dx);
+    dt += v_max/dom[rank].dy + 2.*nu/(dom[rank].dy * dom[rank].dy);
+    dt += w_max/dom[rank].dz + 2.*nu/(dom[rank].dz * dom[rank].dz);
+  }
   dt = CFL/dt;
 
   // MPI reduce to find minimum timestep over all ranks
@@ -1618,6 +1845,7 @@ void cuda_compute_forcing(void)
       }
     }
   }
+  gradP.z = gradP.z * cos(osci_f*ttime);
 
   // linearly accelerate gravitational acceleration from zero
   delta = ttime - g_bc_tdelay;

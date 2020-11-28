@@ -250,4 +250,7 @@ extern __constant__ real _node_p[NNODES];
  *  phi location of nodes
  */
 
+extern __constant__ int _s_mm[64];
+extern __constant__ int _s_nn[64];
+
 #endif
